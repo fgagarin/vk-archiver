@@ -28,9 +28,13 @@ def get_hash(filename: Path, first_chunk_only=False, hash=hashlib.sha1):
 
 
 def check_for_duplicates(path: Path) -> int:
-    hashes_by_size = defaultdict(list)  # dict of size_in_bytes: [full_path_to_file1, full_path_to_file2, ]
-    hashes_on_1k = defaultdict(list)  # dict of (hash1k, size_in_bytes): [full_path_to_file1, full_path_to_file2, ]
-    hashes_full = {}   # dict of full_file_hash: full_path_to_file_string
+    hashes_by_size = defaultdict(
+        list
+    )  # dict of size_in_bytes: [full_path_to_file1, full_path_to_file2, ]
+    hashes_on_1k = defaultdict(
+        list
+    )  # dict of (hash1k, size_in_bytes): [full_path_to_file1, full_path_to_file2, ]
+    hashes_full = {}  # dict of full_file_hash: full_path_to_file_string
     files = path.glob("*.jpg")
 
     for file_path in files:
@@ -39,11 +43,10 @@ def check_for_duplicates(path: Path) -> int:
         file_size = file_path.stat().st_size
         hashes_by_size[file_size].append(file_path)
 
-
     # For all files with the same file size, get their hash on the 1st 1024 bytes only
     for size_in_bytes, files in hashes_by_size.items():
         if len(files) < 2:
-            continue    # this file size is unique, no need to spend CPU cycles on it
+            continue  # this file size is unique, no need to spend CPU cycles on it
 
         for filename in files:
             small_hash = get_hash(filename, first_chunk_only=True)
@@ -56,7 +59,7 @@ def check_for_duplicates(path: Path) -> int:
     # For all files with the hash on the 1st 1024 bytes, get their hash on the full file - collisions will be duplicates
     for __, files_list in hashes_on_1k.items():
         if len(files_list) < 2:
-            continue    # this hash of fist 1k file bytes is unique, no need to spend cpy cycles on it
+            continue  # this hash of fist 1k file bytes is unique, no need to spend cpy cycles on it
 
         for filename in files_list:
             full_hash = get_hash(filename, first_chunk_only=False)
