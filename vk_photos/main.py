@@ -34,68 +34,121 @@ loop = asyncio.get_event_loop()
 class Utils:
     _vk: VkApiMethod | None = None
 
+    def __init__(self):
+        """Initialize Utils class and validate configuration."""
+        self._validate_config()
+
+    def _validate_config(self) -> None:
+        """
+        Validate configuration to ensure only token-based authentication is used.
+
+        Raises:
+            RuntimeError: If login/password fields are found in config
+        """
+        if "login" in config or "password" in config:
+            raise RuntimeError(
+                "Login/password authentication is forbidden. "
+                "Only token-based authentication is allowed. "
+                "Remove login and password fields from config.yaml"
+            )
+
     @property
-    def vk(self):
+    def vk(self) -> VkApiMethod:
+        """Get authenticated VK API instance."""
         if self._vk is None:
-            raise RuntimeError("VK API not initialized. Run `auth` method first.")
+            raise RuntimeError("VK API not initialized. Run `auth_by_token` method first.")
         return self._vk
 
-    def create_dir(self, dir_path: Path):
+    def create_dir(self, dir_path: Path) -> None:
+        """
+        Create directory if it doesn't exist.
+
+        Args:
+            dir_path: Path to the directory to create
+        """
         if not dir_path.exists():
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    def remove_dir(self, dir_path: Path):
+    def remove_dir(self, dir_path: Path) -> None:
+        """
+        Remove directory if it exists.
+
+        Args:
+            dir_path: Path to the directory to remove
+        """
         if dir_path.exists():
             dir_path.rmdir()
 
-    def auth(self):
-        try:
-            vk_session = vk_api.VkApi(
-                login=config["login"], password=config["password"]
-            )
-            print(1)
-            vk_session.auth()
-            print(2)
-        except Exception as e:
-            logging.info("Неправильный логин или пароль")
-            print(e)
-            exit()
-        finally:
-            logging.info("Вы успешно авторизовались.")
-            return vk_session.get_api()
+    def auth_by_token(self) -> VkApiMethod:
+        """
+        Authenticate using VK access token only.
 
-    def auth_by_token(self):
+        Returns:
+            VkApiMethod: Authenticated VK API instance
+
+        Raises:
+            RuntimeError: If token is missing or invalid
+        """
+        if not config.get("token"):
+            logging.error("VK access token is required")
+            logging.info("Get token from: https://vkhost.github.io/")
+            raise RuntimeError("VK access token is required")
+
         try:
             vk_session = vk_api.VkApi(token=config["token"])
-        except Exception:
-            logging.info("Неправильный токен")
-            logging.info("Токен можно получить здесь https://vkhost.github.io/")
-            exit()
-        finally:
-            logging.info("Вы успешно авторизовались.")
             self._vk = vk_session.get_api()
-            return vk_session.get_api()
+            logging.info("Successfully authenticated with token.")
+            return self._vk
+        except Exception as e:
+            logging.error(f"Authentication failed: {e}")
+            logging.info("Get token from: https://vkhost.github.io/")
+            raise RuntimeError("Invalid VK access token")
 
     def check_user_id(self, id: str) -> bool:
+        """
+        Check if user with given ID exists.
+
+        Args:
+            id: VK user ID to check
+
+        Returns:
+            True if user exists, False otherwise
+        """
         try:
             # Проверяем, существует ли пользователь с таким id
             user = self.vk.users.get(user_ids=int(id))
-            if len(user) != 0:
-                return True
-            return False
-        except:
+            return len(user) != 0
+        except Exception:
             return False
 
-    def check_user_ids(self, ids_list) -> bool:
+    def check_user_ids(self, ids_list: str) -> bool:
+        """
+        Check if all users with given IDs exist.
+
+        Args:
+            ids_list: Comma-separated list of VK user IDs
+
+        Returns:
+            True if all users exist, False otherwise
+        """
         try:
             for user_id in ids_list.split(","):
                 if not self.check_user_id(user_id):
                     return False
             return True
-        except:
+        except Exception:
             return False
 
     def check_group_id(self, id: str) -> bool:
+        """
+        Check if group with given ID exists.
+
+        Args:
+            id: VK group ID to check
+
+        Returns:
+            True if group exists, False otherwise
+        """
         try:
             # Проверяем, существует ли группа с таким id
             group = self.vk.groups.getById(group_id=int(id))

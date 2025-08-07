@@ -1,5 +1,4 @@
-login: ""  # Ваш логин он ВКонтакте
-password: ""  # Ваш пароль он ВКонтакте
-# token: "vk1.a.TP7zfg_MalF7us0s_FZzEEYUnK1PaRgkdwcBB1_a7mma8g288qBvNz94jZYjluScSEIewhURwE7rnfq4P6Ht0IwNyGjUFlOGxoMSoEynSnbLBFwiYbzCPPRc95VPOJUlUiey_qLITmYCqvud-hFPKC4mkyets3XzNAmpvC7EUElfYJ2HJ2By3mSG1-bxzWEZ5qFhfDkKCHXCnQu4ZiSYgg"  # Ваш токен (для скачивания фото участников беседы)
-token: "vk1.a.nF7Rm0Dnv4ua9zvqBrt5ywiD9jzCoyPyIipD7WvZcQkVYNGgbjdDKekxvaecglgQ3ptZTYMNiOmau6CLKaHAKDpE-VmvdDJ2yv2JcZYik0gFh9wutT686W5y1x1KYM-0TVqrV9eoMamLWyOAVtJWejqWgJ-CUdZEPULOtRColyYFVs2Cdv3xuU-MTeolWL_ZVzxZPTTkW8iL_yCdbH9Iyg"
-# token: ""
+# VK Access Token - Get from https://vkhost.github.io/
+# CRITICAL: Only use token-based authentication. Login/password authentication is forbidden.
+# token: "vk1.a.TP7zfg_MalF7us0s_FZzEEYUnK1PaRgkdwcBB1_a7mma8g288qBvNz94jZYjluScSEIewhURwE7rnfq4P6Ht0IwNyGjUFlOGxoMSoEynSnbLBFwiYbzCPPRc95VPOJUlUiey_qLITmYCqvud-hFPKC4mkyets3XzNAmpvC7EUElfYJ2HJ2By3mSG1-bxzWEZ5qFhfDkKCHXCnQu4ZiSYgg"
+token: "vk1.a.MPHcR0FHA1JXWNFPSwz8sfFV0Ye-InlioNxRlGxRPxrGXitNq55d7tJYDt2jbCqXBpjYOCVqFlj4wER2zng5piKCxUslK1ZywZasn-EGvBk5O9sZ8wSomNeYq1AV09j43cMF30Pr7j_DrseIkJ-_DR3ai8y699I05uv4zuVwqvAmwm41ISMolu0wk6JE3YTlI2XUwsLEkLZd_IO5pFhShQ"
