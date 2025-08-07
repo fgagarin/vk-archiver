@@ -3,9 +3,6 @@ import logging
 from pathlib import Path
 
 import click
-import vk_api
-import yaml
-from vk_api.vk_api import VkApiMethod
 
 from .downloaders import (
     ChatMembersPhotoDownloader,
@@ -19,14 +16,13 @@ from .downloaders import (
 )
 from .downloaders.chat import set_utils_instance as set_chat_utils_instance
 from .downloaders.user import set_utils_instance
+from .utils import Utils
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 CONFIG_PATH = BASE_DIR.joinpath("config.yaml")
 VK_CONFIG_PATH = BASE_DIR.joinpath("vk_config.v2.json")
 
-with open(CONFIG_PATH, encoding="utf-8") as ymlFile:
-    config = yaml.load(ymlFile.read(), Loader=yaml.Loader)
 
 logging.basicConfig(
     format="%(asctime)s - %(message)s", datefmt="%d-%b-%y %H:%M:%S", level=logging.INFO
@@ -141,206 +137,7 @@ class CLIParameterValidator:
             raise click.BadParameter(f"Cannot create output directory: {e}") from e
 
 
-class Utils:
-    _vk: VkApiMethod | None = None
-
-    def __init__(self):
-        """Initialize Utils class and validate configuration."""
-        self._validate_config()
-
-    def _validate_config(self) -> None:
-        """
-        Validate configuration to ensure only token-based authentication is used.
-
-        Raises:
-            RuntimeError: If login/password fields are found in config
-        """
-        if "login" in config or "password" in config:
-            raise RuntimeError(
-                "Login/password authentication is forbidden. "
-                "Only token-based authentication is allowed. "
-                "Remove login and password fields from config.yaml"
-            )
-
-    @property
-    def vk(self) -> VkApiMethod:
-        """Get authenticated VK API instance."""
-        if self._vk is None:
-            raise RuntimeError(
-                "VK API not initialized. Run `auth_by_token` method first."
-            )
-        return self._vk
-
-    def create_dir(self, dir_path: Path) -> None:
-        """
-        Create directory if it doesn't exist.
-
-        Args:
-            dir_path: Path to the directory to create
-        """
-        if not dir_path.exists():
-            dir_path.mkdir(parents=True, exist_ok=True)
-
-    def auth_by_token(self) -> VkApiMethod:
-        """
-        Authenticate using VK access token only.
-
-        Returns:
-            VkApiMethod: Authenticated VK API instance
-
-        Raises:
-            RuntimeError: If token is missing or invalid
-        """
-        if not config.get("token"):
-            logging.error("VK access token is required")
-            logging.info("Get token from: https://vkhost.github.io/")
-            raise RuntimeError("VK access token is required")
-
-        try:
-            vk_session = vk_api.VkApi(token=config["token"])
-            self._vk = vk_session.get_api()
-            logging.info("Successfully authenticated with token.")
-            return self._vk
-        except Exception as e:
-            logging.error(f"Authentication failed: {e}")
-            logging.info("Get token from: https://vkhost.github.io/")
-            raise RuntimeError("Invalid VK access token") from e
-
-    def check_user_id(self, id: str) -> bool:
-        """
-        Check if user with given ID exists.
-
-        Args:
-            id: VK user ID to check
-
-        Returns:
-            True if user exists, False otherwise
-        """
-        try:
-            # Проверяем, существует ли пользователь с таким id
-            user = self.vk.users.get(user_ids=int(id))
-            return len(user) != 0
-        except Exception:
-            return False
-
-    def check_user_ids(self, ids_list: str) -> bool:
-        """
-        Check if all users with given IDs exist.
-
-        Args:
-            ids_list: Comma-separated list of VK user IDs
-
-        Returns:
-            True if all users exist, False otherwise
-        """
-        try:
-            for user_id in ids_list.split(","):
-                if not self.check_user_id(user_id):
-                    return False
-            return True
-        except Exception:
-            return False
-
-    def check_group_id(self, id: str) -> bool:
-        """
-        Check if group with given ID exists.
-
-        Args:
-            id: VK group ID to check
-
-        Returns:
-            True if group exists, False otherwise
-        """
-        try:
-            # Проверяем, существует ли группа с таким id
-            group = self.vk.groups.getById(group_id=int(id))
-            if len(group) != 0:
-                return True
-            return False
-        except Exception as e:
-            print(e)
-            return False
-
-    def check_group_ids(self, ids_list: str) -> bool:
-        """
-        Check if all groups with given IDs exist.
-
-        Args:
-            ids_list: Comma-separated list of VK group IDs
-
-        Returns:
-            True if all groups exist, False otherwise
-        """
-        try:
-            for group_id in ids_list.split(","):
-                if not self.check_group_id(group_id):
-                    return False
-            return True
-        except Exception:
-            return False
-
-    def check_chat_id(self, id: str) -> bool:
-        try:
-            # Проверяем, существует ли беседа с таким id
-            conversation = self.vk.messages.getConversationsById(
-                peer_ids=2000000000 + int(id)
-            )
-            if conversation["count"] != 0:
-                return True
-            return False
-        except Exception:
-            return False
-
-    def get_user_id(self) -> int:
-        """
-        Get current user ID from VK API.
-
-        Returns:
-            Current user ID
-        """
-        return self.vk.account.getProfileInfo()["id"]
-
-    def get_username(self, user_id: str) -> str:
-        """
-        Get username by user ID.
-
-        Args:
-            user_id: VK user ID
-
-        Returns:
-            User's full name
-        """
-        user = self.vk.users.get(user_id=user_id)[0]
-        return f"{user['first_name']} {user['last_name']}"
-
-    def get_group_title(self, group_id: str) -> str:
-        """
-        Get group title by group ID.
-
-        Args:
-            group_id: VK group ID
-
-        Returns:
-            Group name with sanitized characters
-        """
-        group_info = self.vk.groups.getById(group_id=group_id)
-        group_name = (
-            group_info[0]["name"]
-            .replace("/", " ")
-            .replace("|", " ")
-            .replace(".", " ")
-            .strip()
-        )
-        return group_name
-
-    def get_chat_title(self, chat_id: str) -> str:
-        chat_title = self.vk.messages.getConversationsById(
-            peer_ids=2000000000 + int(chat_id)
-        )["items"][0]["chat_settings"]["title"]
-        return chat_title
-
-
-utils = Utils()
+utils = Utils(CONFIG_PATH)
 
 # Initialize utils instance in downloaders
 set_utils_instance(utils)

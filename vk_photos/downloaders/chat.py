@@ -12,7 +12,7 @@ from ..functions import download_photos
 from .user import UsersPhotoDownloader
 
 if TYPE_CHECKING:
-    from ..main import Utils
+    from ..utils import Utils
 
 # Global constants
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")

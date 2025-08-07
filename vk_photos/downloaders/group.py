@@ -12,7 +12,7 @@ from vk_api.vk_api import VkApiMethod
 from ..functions import download_photos, download_videos, dump
 
 if TYPE_CHECKING:
-    from ..main import Utils
+    from ..utils import Utils
 
 # Global constants
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
