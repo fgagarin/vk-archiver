@@ -1,26 +1,24 @@
 import asyncio
 import logging
-import math
-import time
 from pathlib import Path
 
 import click
-import requests
 import vk_api
 import yaml
-from pytils import numeral
 from vk_api.vk_api import VkApiMethod
 
 from .downloaders import (
+    ChatMembersPhotoDownloader,
+    ChatPhotoDownloader,
+    ChatUserPhotoDownloader,
     GroupAlbumsDownloader,
     GroupPhotoDownloader,
     GroupsPhotoDownloader,
     UserPhotoDownloader,
     UsersPhotoDownloader,
 )
+from .downloaders.chat import set_utils_instance as set_chat_utils_instance
 from .downloaders.user import set_utils_instance
-from .filter import check_for_duplicates
-from .functions import download_photos
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
@@ -346,240 +344,7 @@ utils = Utils()
 
 # Initialize utils instance in downloaders
 set_utils_instance(utils)
-
-
-class ChatMembersPhotoDownloader:
-    def __init__(self, chat_id: str, vk_instance: VkApiMethod):
-        self.chat_id = int(chat_id)
-        self.vk = vk_instance
-
-    async def main(self):
-        chat_title = utils.get_chat_title(str(self.chat_id))
-        chat_path = DOWNLOADS_DIR.joinpath(chat_title)
-
-        # Создаём папку с фотографиями участников беседы, если её не существует
-        utils.create_dir(chat_path)
-
-        members = self.vk.messages.getChat(chat_id=self.chat_id)["users"]
-
-        if members == []:
-            logging.info("Вы вышли из этой беседы")
-            logging.info(f"Skipping download for empty chat: {chat_path}")
-        else:
-            members_ids = []
-
-            for member_id in members:
-                if member_id > 0:
-                    members_ids.append(member_id)
-
-            members_ids.remove(utils.get_user_id())
-
-            await UsersPhotoDownloader(
-                user_ids=members_ids, vk_instance=self.vk, parent_dir=chat_path
-            ).main()
-
-
-class ChatPhotoDownloader:
-    def __init__(self, chat_id: str, vk_instance: VkApiMethod):
-        self.chat_id = int(chat_id)
-        self.vk = vk_instance
-
-    def download_chat_photo(self):
-        """
-        Скачиваем аватарку беседы если она есть
-        """
-        if "photo" in self.chat:
-            sizes = self.chat["photo"]
-            max_size = list(sizes)[-2]
-            photo_url = sizes[max_size]
-            photo_path = self.chat_dir.joinpath("Аватарка беседы.png")
-
-            response = requests.get(photo_url)
-            if response.status_code == 200:
-                with open(photo_path, mode="wb") as f:
-                    f.write(response.content)
-
-    def get_attachments(self):
-        raw_data = self.vk.messages.getHistoryAttachments(
-            peer_id=2000000000 + self.chat_id, media_type="photo"
-        )["items"]
-
-        photos = []
-
-        for photo in raw_data:
-            photos.append(
-                {
-                    "id": photo["attachment"]["photo"]["id"],
-                    "owner_id": photo["attachment"]["photo"]["owner_id"],
-                    "url": photo["attachment"]["photo"]["sizes"][-1]["url"],
-                }
-            )
-
-        return photos
-
-    async def main(self):
-        chat_title = utils.get_chat_title(str(self.chat_id))
-        photos_path = DOWNLOADS_DIR.joinpath(chat_title)
-        if not photos_path.exists():
-            logging.info(f"Создаём папку с фотографиями беседы '{chat_title}'")
-            photos_path.mkdir()
-
-        photos = self.get_attachments()
-
-        logging.info(
-            "{} {} {}".format(
-                numeral.choose_plural(len(photos), "Будет, Будут, Будут"),
-                numeral.choose_plural(len(photos), "скачена, скачены, скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-            )
-        )
-
-        time_start = time.time()
-
-        # Скачиваем вложения беседы
-        await download_photos(photos_path, photos)
-
-        time_finish = time.time()
-        download_time = math.ceil(time_finish - time_start)
-
-        logging.info(
-            "{} {} за {}".format(
-                numeral.choose_plural(len(photos), "Скачена, Скачены, Скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-                numeral.get_plural(download_time, "секунду, секунды, секунд"),
-            )
-        )
-
-        logging.info("Проверка на дубликаты")
-        dublicates_count = check_for_duplicates(photos_path)
-        logging.info(f"Дубликатов удалено: {dublicates_count}")
-
-        logging.info(f"Итого скачено: {len(photos) - dublicates_count} фото")
-
-
-# class ChatUserPhotoDownloader:
-#     def __init__(self, chat_id: str, vk_instance: VkApiMethod, parent_dir=DOWNLOADS_DIR):
-#         self.chat_id = chat_id
-#         self.parent_dir = parent_dir
-#         self.vk = vk_instance
-#     def get_attachments(self):
-#         raw_data = self.vk.messages.getHistoryAttachments(
-#             peer_id=self.chat_id, media_type="photo"
-#         )["items"]
-
-#         photos = []
-
-#         for photo in raw_data:
-#             photos.append(
-#                 {
-#                     "id": photo["attachment"]["photo"]["id"],
-#                     "owner_id": photo["attachment"]["photo"]["owner_id"],
-#                     "url": photo["attachment"]["photo"]["sizes"][-1]["url"],
-#                 }
-#             )
-
-#         return photos
-
-#     async def main(self):
-#         username = utils.get_username(self.chat_id)
-
-#         photos_path = self.parent_dir.joinpath(f"Переписка {username}")
-#         utils.create_dir(photos_path)
-
-#         photos = self.get_attachments()
-
-#         logging.info(
-#             "{} {} {}".format(
-#                 numeral.choose_plural(len(photos), "Будет, Будут, Будут"),
-#                 numeral.choose_plural(len(photos), "скачена, скачены, скачены"),
-#                 numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-#             )
-#         )
-
-#         time_start = time.time()
-
-#         await download_photos(photos_path, photos)
-
-#         time_finish = time.time()
-#         download_time = math.ceil(time_finish - time_start)
-
-#         logging.info(
-#             "{} {} за {}".format(
-#                 numeral.choose_plural(len(photos), "Скачена, Скачены, Скачены"),
-#                 numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-#                 numeral.get_plural(download_time, "секунду, секунды, секунд"),
-#             )
-#         )
-
-#         logging.info("Проверка на дубликаты")
-#         dublicates_count = check_for_duplicates(photos_path)
-#         logging.info(f"Дубликатов удалено: {dublicates_count}")
-
-#         logging.info(f"Итого скачено: {len(photos) - dublicates_count} фото")
-
-
-class ChatUserPhotoDownloader:
-    def __init__(
-        self, chat_id: str, vk_instance: VkApiMethod, parent_dir=DOWNLOADS_DIR
-    ):
-        self.chat_id = chat_id
-        self.parent_dir = parent_dir
-        self.vk = vk_instance
-
-    def get_attachments(self):
-        raw_data = self.vk.messages.getHistoryAttachments(
-            peer_id=self.chat_id, media_type="photo"
-        )["items"]
-
-        photos = []
-
-        for photo in raw_data:
-            photos.append(
-                {
-                    "id": photo["attachment"]["photo"]["id"],
-                    "owner_id": photo["attachment"]["photo"]["owner_id"],
-                    "url": photo["attachment"]["photo"]["sizes"][-1]["url"],
-                }
-            )
-
-        return photos
-
-    async def main(self):
-        username = utils.get_username(self.chat_id)
-
-        photos_path = self.parent_dir.joinpath(f"Переписка {username}")
-        utils.create_dir(photos_path)
-
-        photos = self.get_attachments()
-
-        logging.info(
-            "{} {} {}".format(
-                numeral.choose_plural(len(photos), "Будет, Будут, Будут"),
-                numeral.choose_plural(len(photos), "скачена, скачены, скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-            )
-        )
-
-        time_start = time.time()
-
-        await download_photos(photos_path, photos)
-
-        time_finish = time.time()
-        download_time = math.ceil(time_finish - time_start)
-
-        logging.info(
-            "{} {} за {}".format(
-                numeral.choose_plural(len(photos), "Скачена, Скачены, Скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-                numeral.get_plural(download_time, "секунду, секунды, секунд"),
-            )
-        )
-
-        logging.info("Проверка на дубликаты")
-        dublicates_count = check_for_duplicates(photos_path)
-        logging.info(f"Дубликатов удалено: {dublicates_count}")
-
-        logging.info(f"Итого скачено: {len(photos) - dublicates_count} фото")
+set_chat_utils_instance(utils)
 
 
 @click.group()
