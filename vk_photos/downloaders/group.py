@@ -4,7 +4,7 @@ import logging
 import math
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pytils import numeral
 from vk_api.vk_api import VkApiMethod
@@ -72,7 +72,7 @@ class GroupAlbumsDownloader:
                 utils.create_dir(album_dir)
             dump(album, album_dir.joinpath("info.yaml"))
 
-            photos = []
+            photos: list[dict[str, Any]] = []
             offset = 0
             while True:
                 album_photos = self.vk.photos.get(
@@ -170,7 +170,7 @@ class GroupPhotoDownloader:
 
                 offset += 100
 
-    def get_single_post(self, post: dict) -> None:
+    def get_single_post(self, post: dict[str, Any]) -> None:
         """
         Process all attachments in a post and select only images.
 
@@ -236,8 +236,8 @@ class GroupPhotoDownloader:
         if utils is not None:
             utils.create_dir(group_dir)
 
-        self.photos = []
-        self.videos_list = []
+        self.photos: list[dict[str, Any]] = []
+        self.videos_list: list[dict[str, Any]] = []
 
         # Группа закрыта
         if group_info["is_closed"]:
@@ -392,7 +392,7 @@ class GroupsPhotoDownloader:
 
                 offset += 100
 
-    def get_single_post(self, post: dict) -> None:
+    def get_single_post(self, post: dict[str, Any]) -> None:
         """
         Process all attachments in a post and select only images.
 
@@ -450,8 +450,8 @@ class GroupsPhotoDownloader:
             else []
         )
         group_dir = DOWNLOADS_DIR.joinpath(groups_name)
-        self.photos = []
-        self.videos_list = []
+        self.photos: list[dict[str, Any]] = []
+        self.videos_list: list[dict[str, Any]] = []
 
         download_vid = "1" if download_videos_flag else "2"
 

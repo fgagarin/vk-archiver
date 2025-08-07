@@ -139,7 +139,9 @@ class Utils:
             User's full name
         """
         user = self.vk.users.get(user_id=user_id)[0]
-        return f"{user['first_name']} {user['last_name']}"
+        first_name = str(user["first_name"])
+        last_name = str(user["last_name"])
+        return f"{first_name} {last_name}"
 
     def get_group_title(self, group_id: str) -> str:
         """
@@ -159,7 +161,7 @@ class Utils:
             .replace(".", " ")
             .strip()
         )
-        return group_name
+        return str(group_name)
 
     def get_chat_title(self, chat_id: str) -> str:
         """
@@ -171,7 +173,8 @@ class Utils:
         Returns:
             Chat title
         """
-        chat_title = self.vk.messages.getConversationsById(
+        conversation = self.vk.messages.getConversationsById(
             peer_ids=2000000000 + int(chat_id)
-        )["items"][0]["chat_settings"]["title"]
-        return chat_title
+        )
+        chat_title = conversation["items"][0]["chat_settings"]["title"]
+        return str(chat_title)

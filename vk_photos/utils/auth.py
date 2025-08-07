@@ -74,4 +74,5 @@ class VKAuthenticator:
         Returns:
             Current user ID
         """
-        return self.vk.account.getProfileInfo()["id"]
+        profile_info = self.vk.account.getProfileInfo()
+        return int(profile_info["id"])

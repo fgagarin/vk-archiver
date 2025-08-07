@@ -3,11 +3,24 @@
 import hashlib
 import logging
 from collections import defaultdict
+from collections.abc import Callable, Generator
 from pathlib import Path
+from typing import Any, BinaryIO
 
 
-def chunk_reader(fobj, chunk_size=1024):
-    """Generator that reads a file in chunks of bytes"""
+def chunk_reader(
+    fobj: BinaryIO, chunk_size: int = 1024
+) -> Generator[bytes, None, None]:
+    """
+    Generator that reads a file in chunks of bytes.
+
+    Args:
+        fobj: File object to read from
+        chunk_size: Size of each chunk in bytes
+
+    Yields:
+        Chunks of bytes from the file
+    """
     while True:
         chunk = fobj.read(chunk_size)
         if not chunk:
@@ -15,8 +28,23 @@ def chunk_reader(fobj, chunk_size=1024):
         yield chunk
 
 
-def get_hash(filename: Path, first_chunk_only=False, hash=hashlib.sha1):
-    hashobj = hash()
+def get_hash(
+    filename: Path,
+    first_chunk_only: bool = False,
+    hash_func: Callable[[], Any] = hashlib.sha1,
+) -> bytes:
+    """
+    Calculate hash of a file.
+
+    Args:
+        filename: Path to the file to hash
+        first_chunk_only: If True, only hash the first 1024 bytes
+        hash_func: Hash function to use (default: hashlib.sha1)
+
+    Returns:
+        Hash digest as bytes
+    """
+    hashobj = hash_func()
     with open(filename, "rb") as file_object:
         if first_chunk_only:
             hashobj.update(file_object.read(1024))
@@ -25,18 +53,29 @@ def get_hash(filename: Path, first_chunk_only=False, hash=hashlib.sha1):
                 hashobj.update(chunk)
         hashed = hashobj.digest()
 
-        return hashed
+        return bytes(hashed)
 
 
 def check_for_duplicates(path: Path) -> int:
-    hashes_by_size = defaultdict(
+    """
+    Check for duplicate files in a directory and log them.
+
+    Args:
+        path: Directory path to check for duplicates
+
+    Returns:
+        Number of duplicate files found
+    """
+    hashes_by_size: dict[int, list[Path]] = defaultdict(
         list
     )  # dict of size_in_bytes: [full_path_to_file1, full_path_to_file2, ]
-    hashes_on_1k = defaultdict(
+    hashes_on_1k: dict[tuple[bytes, int], list[Path]] = defaultdict(
         list
     )  # dict of (hash1k, size_in_bytes): [full_path_to_file1, full_path_to_file2, ]
-    hashes_full = {}  # dict of full_file_hash: full_path_to_file_string
-    files = path.glob("*.jpg")
+    hashes_full: dict[
+        bytes, Path
+    ] = {}  # dict of full_file_hash: full_path_to_file_string
+    files = list(path.glob("*.jpg"))
 
     for file_path in files:
         # if the target is a symlink (soft one), this will
@@ -55,7 +94,7 @@ def check_for_duplicates(path: Path) -> int:
             # avoid collisions on equal hashes in the first part of the file
             hashes_on_1k[(small_hash, size_in_bytes)].append(filename)
 
-    duplicates = []
+    duplicates: list[Path] = []
 
     # For all files with the hash on the 1st 1024 bytes, get their hash on the full file - collisions will be duplicates
     for __, files_list in hashes_on_1k.items():

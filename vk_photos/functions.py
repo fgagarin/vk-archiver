@@ -1,6 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 import aiofiles
 import aiohttp
@@ -13,8 +14,18 @@ from tqdm.asyncio import tqdm
 maker = PetrovichDeclinationMaker()
 
 
-def decline(first_name, last_name, sex):
-    """Возвращает имя и фамилию в родительном падаже."""
+def decline(first_name: str, last_name: str, sex: int) -> str:
+    """
+    Return first name and last name in genitive case.
+
+    Args:
+        first_name: First name to decline
+        last_name: Last name to decline
+        sex: Gender (1 for female, 2 for male)
+
+    Returns:
+        Declined first name and last name as a string
+    """
     if sex == 1:
         first_name = maker.make(
             NamePart.FIRSTNAME, Gender.FEMALE, Case.GENITIVE, first_name
@@ -30,19 +41,41 @@ def decline(first_name, last_name, sex):
     return f"{first_name} {last_name}"
 
 
-def write_json(data, title="data"):
+def write_json(data: Any, title: str = "data") -> None:
+    """
+    Write data to a JSON file.
+
+    Args:
+        data: Data to write to JSON file
+        title: Base name for the JSON file (without extension)
+    """
     with open(title + ".json", "w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
 
 
-def dump(data, file_path: Path):
+def dump(data: Any, file_path: Path) -> None:
+    """
+    Write data to a YAML file.
+
+    Args:
+        data: Data to write to YAML file
+        file_path: Path to the YAML file
+    """
     with open(file_path, "w", encoding="utf-8") as file:
         yaml.dump(data, file, indent=2, allow_unicode=True)
 
 
 async def download_photo(
     session: aiohttp.ClientSession, photo_url: str, photo_path: Path
-):
+) -> None:
+    """
+    Download a single photo from URL to local path.
+
+    Args:
+        session: aiohttp client session for making HTTP requests
+        photo_url: URL of the photo to download
+        photo_path: Local path where to save the photo
+    """
     try:
         if not photo_path.exists():
             async with session.get(photo_url) as response:
@@ -53,7 +86,14 @@ async def download_photo(
         print(e)
 
 
-async def download_photos(photos_path: Path, photos: list):
+async def download_photos(photos_path: Path, photos: list[dict[str, Any]]) -> None:
+    """
+    Download multiple photos concurrently.
+
+    Args:
+        photos_path: Directory path where to save photos
+        photos: List of photo dictionaries containing 'owner_id', 'id', and 'url' keys
+    """
     async with aiohttp.ClientSession() as session:
         futures = []
         for _i, photo in enumerate(photos, start=1):
@@ -65,14 +105,28 @@ async def download_photos(photos_path: Path, photos: list):
             await future
 
 
-async def download_video(video_path, video_link):
+async def download_video(video_path: Path, video_link: str) -> None:
+    """
+    Download a video using yt-dlp.
+
+    Args:
+        video_path: Path where to save the video
+        video_link: URL of the video to download
+    """
     ydl_opts = {"outtmpl": f"{video_path}", "quiet": True, "retries": 10}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download(video_link)
         print(f"Видео загружено: {video_link}")
 
 
-async def download_videos(videos_path: Path, videos: list):
+async def download_videos(videos_path: Path, videos: list[dict[str, Any]]) -> None:
+    """
+    Download multiple videos concurrently.
+
+    Args:
+        videos_path: Directory path where to save videos
+        videos: List of video dictionaries containing 'owner_id', 'id', and 'player' keys
+    """
     futures = []
     for _i, video in enumerate(videos, start=1):
         filename = "{}_{}.mp4".format(

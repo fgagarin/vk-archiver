@@ -4,7 +4,7 @@ import logging
 import math
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pytils import numeral
 from vk_api.vk_api import VkApiMethod
@@ -50,14 +50,14 @@ class UserPhotoDownloader:
         self.vk = vk_instance
         self.parent_dir = parent_dir
 
-    def get_photos(self) -> list[dict]:
+    def get_photos(self) -> list[dict[str, Any]]:
         """
         Get all photos from user profile.
 
         Returns:
             List of photo dictionaries with metadata
         """
-        photos = []
+        photos: list[dict[str, Any]] = []
 
         offset = 0
         while True:
@@ -254,7 +254,10 @@ class UsersPhotoDownloader:
     """Downloader for photos from multiple VK user profiles."""
 
     def __init__(
-        self, user_ids: list, vk_instance: VkApiMethod, parent_dir: Path = DOWNLOADS_DIR
+        self,
+        user_ids: list[str],
+        vk_instance: VkApiMethod,
+        parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """
         Initialize UsersPhotoDownloader.
