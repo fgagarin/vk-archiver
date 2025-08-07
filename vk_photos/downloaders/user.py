@@ -10,6 +10,9 @@ from pytils import numeral
 from vk_api.vk_api import VkApiMethod
 
 from ..functions import decline, download_photos
+from ..utils.exceptions import (
+    InitializationError,
+)
 
 if TYPE_CHECKING:
     from ..utils import Utils
@@ -210,7 +213,9 @@ class UserPhotoDownloader:
         )
 
         if utils is None:
-            raise RuntimeError("Utils instance not initialized")
+            raise InitializationError(
+                "Utils instance not initialized", component="UserPhotoDownloader"
+            )
 
         username = utils.get_username(str(self.user_id))
 

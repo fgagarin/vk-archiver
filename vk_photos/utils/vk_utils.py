@@ -41,6 +41,16 @@ class Utils:
         """
         return self._authenticator.vk
 
+    @property
+    def validator(self) -> VKValidator:
+        """
+        Get VK validator instance.
+
+        Returns:
+            VKValidator: VK validator instance
+        """
+        return self._validator
+
     def create_dir(self, dir_path: Path) -> None:
         """
         Create directory if it doesn't exist.

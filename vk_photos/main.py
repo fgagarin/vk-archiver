@@ -17,6 +17,12 @@ from .downloaders import (
 from .downloaders.chat import set_utils_instance as set_chat_utils_instance
 from .downloaders.user import set_utils_instance
 from .utils import Utils
+from .utils.exceptions import (
+    APIError,
+    PermissionError,
+    ResourceNotFoundError,
+    ValidationError,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
@@ -133,6 +139,14 @@ class CLIParameterValidator:
             path = Path(output_dir)
             path.mkdir(parents=True, exist_ok=True)
             return path
+        except PermissionError as e:
+            raise click.BadParameter(
+                f"Cannot create output directory due to permission error: {e}"
+            ) from e
+        except OSError as e:
+            raise click.BadParameter(
+                f"Cannot create output directory due to system error: {e}"
+            ) from e
         except Exception as e:
             raise click.BadParameter(f"Cannot create output directory: {e}") from e
 
@@ -219,8 +233,16 @@ def user(ctx: click.Context, user_id: str) -> None:
     if validated_user_id is None:
         raise click.BadParameter("User ID is required")
 
-    if not utils.check_user_id(validated_user_id):
-        raise click.BadParameter(f"User with ID {validated_user_id} does not exist")
+    try:
+        utils.validator.validate_user_id(validated_user_id)
+    except ValidationError as e:
+        raise click.BadParameter(f"Invalid user ID: {e}") from e
+    except ResourceNotFoundError as e:
+        raise click.BadParameter(
+            f"User with ID {validated_user_id} does not exist"
+        ) from e
+    except APIError as e:
+        raise click.BadParameter(f"Failed to validate user: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = UserPhotoDownloader(
@@ -257,8 +279,14 @@ def users(ctx: click.Context, user_ids: str) -> None:
     # Validate each user ID
     for user_id in user_id_list:
         CLIParameterValidator.validate_user_id(user_id)
-        if not utils.check_user_id(user_id):
-            raise click.BadParameter(f"User with ID {user_id} does not exist")
+        try:
+            utils.validator.validate_user_id(user_id)
+        except ValidationError as e:
+            raise click.BadParameter(f"Invalid user ID: {e}") from e
+        except ResourceNotFoundError as e:
+            raise click.BadParameter(f"User with ID {user_id} does not exist") from e
+        except APIError as e:
+            raise click.BadParameter(f"Failed to validate user: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = UsersPhotoDownloader(
@@ -295,8 +323,16 @@ def group(ctx: click.Context, group_id: str) -> None:
     if validated_group_id is None:
         raise click.BadParameter("Group ID is required")
 
-    if not utils.check_group_id(validated_group_id):
-        raise click.BadParameter(f"Group with ID {validated_group_id} does not exist")
+    try:
+        utils.validator.validate_group_id(validated_group_id)
+    except ValidationError as e:
+        raise click.BadParameter(f"Invalid group ID: {e}") from e
+    except ResourceNotFoundError as e:
+        raise click.BadParameter(
+            f"Group with ID {validated_group_id} does not exist"
+        ) from e
+    except APIError as e:
+        raise click.BadParameter(f"Failed to validate group: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = GroupPhotoDownloader(group_id=validated_group_id, vk_instance=vk)
@@ -332,8 +368,14 @@ def groups(ctx: click.Context, group_ids: str) -> None:
     # Validate each group ID
     for group_id in group_id_list:
         CLIParameterValidator.validate_group_id(group_id)
-        if not utils.check_group_id(group_id):
-            raise click.BadParameter(f"Group with ID {group_id} does not exist")
+        try:
+            utils.validator.validate_group_id(group_id)
+        except ValidationError as e:
+            raise click.BadParameter(f"Invalid group ID: {e}") from e
+        except ResourceNotFoundError as e:
+            raise click.BadParameter(f"Group with ID {group_id} does not exist") from e
+        except APIError as e:
+            raise click.BadParameter(f"Failed to validate group: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = GroupsPhotoDownloader(
@@ -370,8 +412,16 @@ def chat_members(ctx: click.Context, chat_id: str) -> None:
     if validated_chat_id is None:
         raise click.BadParameter("Chat ID is required")
 
-    if not utils.check_chat_id(validated_chat_id):
-        raise click.BadParameter(f"Chat with ID {validated_chat_id} does not exist")
+    try:
+        utils.validator.validate_chat_id(validated_chat_id)
+    except ValidationError as e:
+        raise click.BadParameter(f"Invalid chat ID: {e}") from e
+    except ResourceNotFoundError as e:
+        raise click.BadParameter(
+            f"Chat with ID {validated_chat_id} does not exist"
+        ) from e
+    except APIError as e:
+        raise click.BadParameter(f"Failed to validate chat: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = ChatMembersPhotoDownloader(chat_id=validated_chat_id, vk_instance=vk)
@@ -406,8 +456,16 @@ def chat_attachments(ctx: click.Context, chat_id: str) -> None:
     if validated_chat_id is None:
         raise click.BadParameter("Chat ID is required")
 
-    if not utils.check_chat_id(validated_chat_id):
-        raise click.BadParameter(f"Chat with ID {validated_chat_id} does not exist")
+    try:
+        utils.validator.validate_chat_id(validated_chat_id)
+    except ValidationError as e:
+        raise click.BadParameter(f"Invalid chat ID: {e}") from e
+    except ResourceNotFoundError as e:
+        raise click.BadParameter(
+            f"Chat with ID {validated_chat_id} does not exist"
+        ) from e
+    except APIError as e:
+        raise click.BadParameter(f"Failed to validate chat: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = ChatPhotoDownloader(chat_id=validated_chat_id, vk_instance=vk)
@@ -442,8 +500,16 @@ def user_chat(ctx: click.Context, user_id: str) -> None:
     if validated_user_id is None:
         raise click.BadParameter("User ID is required")
 
-    if not utils.check_user_id(validated_user_id):
-        raise click.BadParameter(f"User with ID {validated_user_id} does not exist")
+    try:
+        utils.validator.validate_user_id(validated_user_id)
+    except ValidationError as e:
+        raise click.BadParameter(f"Invalid user ID: {e}") from e
+    except ResourceNotFoundError as e:
+        raise click.BadParameter(
+            f"User with ID {validated_user_id} does not exist"
+        ) from e
+    except APIError as e:
+        raise click.BadParameter(f"Failed to validate user: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = ChatUserPhotoDownloader(
@@ -480,8 +546,16 @@ def group_albums(ctx: click.Context, group_id: str) -> None:
     if validated_group_id is None:
         raise click.BadParameter("Group ID is required")
 
-    if not utils.check_group_id(validated_group_id):
-        raise click.BadParameter(f"Group with ID {validated_group_id} does not exist")
+    try:
+        utils.validator.validate_group_id(validated_group_id)
+    except ValidationError as e:
+        raise click.BadParameter(f"Invalid group ID: {e}") from e
+    except ResourceNotFoundError as e:
+        raise click.BadParameter(
+            f"Group with ID {validated_group_id} does not exist"
+        ) from e
+    except APIError as e:
+        raise click.BadParameter(f"Failed to validate group: {e}") from e
 
     vk = utils.auth_by_token()
     downloader = GroupAlbumsDownloader(group_id=validated_group_id, vk_instance=vk)

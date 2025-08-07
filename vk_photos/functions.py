@@ -11,6 +11,8 @@ from pytrovich.enums import Case, Gender, NamePart
 from pytrovich.maker import PetrovichDeclinationMaker
 from tqdm.asyncio import tqdm
 
+from .utils.exceptions import DownloadError, FileSystemError, NetworkError
+
 maker = PetrovichDeclinationMaker()
 
 
@@ -82,8 +84,32 @@ async def download_photo(
                 if response.status == 200:
                     async with aiofiles.open(photo_path, "wb") as f:
                         await f.write(await response.read())
+                else:
+                    raise NetworkError(
+                        f"Failed to download photo: HTTP {response.status}",
+                        url=photo_url,
+                        status_code=response.status,
+                    )
+    except aiohttp.ClientError as e:
+        raise NetworkError(
+            f"Network error while downloading photo: {e}",
+            url=photo_url,
+            original_exception=e,
+        ) from e
+    except OSError as e:
+        raise FileSystemError(
+            f"File system error while saving photo: {e}",
+            file_path=str(photo_path),
+            operation="write",
+            original_exception=e,
+        ) from e
     except Exception as e:
-        print(e)
+        raise DownloadError(
+            f"Unexpected error while downloading photo: {e}",
+            url=photo_url,
+            file_path=str(photo_path),
+            original_exception=e,
+        ) from e
 
 
 async def download_photos(photos_path: Path, photos: list[dict[str, Any]]) -> None:

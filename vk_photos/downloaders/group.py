@@ -243,8 +243,15 @@ class GroupPhotoDownloader:
                         "owner_id": owner_id,
                         "url": vid_resp
                     })"""
+        except KeyError as e:
+            # Missing required fields in post data
+            logging.warning(f"Missing required field in post data: {e}")
+        except IndexError as e:
+            # Invalid attachment structure
+            logging.warning(f"Invalid attachment structure: {e}")
         except Exception as e:
-            print(e)
+            # Any other unexpected error
+            logging.error(f"Unexpected error processing post: {e}")
 
     async def main(self, download_videos_flag: bool = False) -> None:
         """
@@ -476,8 +483,15 @@ class GroupsPhotoDownloader:
                         "owner_id": owner_id,
                         "url": vid_resp
                     })"""
+        except KeyError as e:
+            # Missing required fields in post data
+            logging.warning(f"Missing required field in post data: {e}")
+        except IndexError as e:
+            # Invalid attachment structure
+            logging.warning(f"Invalid attachment structure: {e}")
         except Exception as e:
-            print(e)
+            # Any other unexpected error
+            logging.error(f"Unexpected error processing post: {e}")
 
     async def main(self, download_videos_flag: bool = False) -> None:
         """

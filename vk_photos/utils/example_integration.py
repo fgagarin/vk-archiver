@@ -122,9 +122,14 @@ class ExamplePhotoDownloader:
                         f"Failed to download photo {self._generate_photo_id(photo)}"
                     )
 
+            except OSError as e:
+                logging.error(
+                    f"File system error downloading photo {self._generate_photo_id(photo)}: {e}"
+                )
+                continue
             except Exception as e:
                 logging.error(
-                    f"Error downloading photo {self._generate_photo_id(photo)}: {e}"
+                    f"Unexpected error downloading photo {self._generate_photo_id(photo)}: {e}"
                 )
                 continue
 
@@ -153,8 +158,11 @@ class ExamplePhotoDownloader:
         try:
             filepath.touch()
             return True
+        except OSError as e:
+            logging.error(f"File system error creating file {filepath}: {e}")
+            return False
         except Exception as e:
-            logging.error(f"Failed to create file {filepath}: {e}")
+            logging.error(f"Unexpected error creating file {filepath}: {e}")
             return False
 
     def get_download_stats(self) -> dict:

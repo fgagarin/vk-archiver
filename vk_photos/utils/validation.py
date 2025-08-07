@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from .exceptions import APIError, ResourceNotFoundError, ValidationError
+
 if TYPE_CHECKING:
     from .auth import VKAuthenticator
 
@@ -40,8 +42,55 @@ class VKValidator:
             # Проверяем, существует ли пользователь с таким id
             user = self._authenticator.vk.users.get(user_ids=int(id))
             return len(user) != 0
-        except Exception:
+        except (ValueError, TypeError):
+            # Invalid ID format
             return False
+        except Exception:
+            # Any other API or network error
+            return False
+
+    def validate_user_id(self, id: str) -> None:
+        """
+        Validate that user with given ID exists.
+
+        This method verifies that a VK user with the specified ID exists and is
+        accessible via the VK API. It raises specific exceptions for different
+        error scenarios.
+
+        Args:
+            id: VK user ID to validate
+
+        Raises:
+            ValidationError: If user ID format is invalid
+            ResourceNotFoundError: If user with given ID does not exist
+            APIError: If VK API call fails
+        """
+        try:
+            user_id = int(id)
+        except ValueError as e:
+            raise ValidationError(
+                f"Invalid user ID format: {id}",
+                details="User ID must be a valid integer",
+                original_exception=e,
+            ) from e
+
+        try:
+            user = self._authenticator.vk.users.get(user_ids=user_id)
+            if len(user) == 0:
+                raise ResourceNotFoundError(
+                    f"User with ID {id} does not exist",
+                    resource_type="user",
+                    resource_id=id,
+                )
+        except ResourceNotFoundError:
+            raise
+        except Exception as e:
+            raise APIError(
+                f"Failed to validate user ID: {id}",
+                details=f"VK API error: {e}",
+                original_exception=e,
+                api_method="users.get",
+            ) from e
 
     def check_user_ids(self, ids_list: str) -> bool:
         """
@@ -67,6 +116,7 @@ class VKValidator:
                     return False
             return True
         except Exception:
+            # Any parsing or iteration error
             return False
 
     def check_group_id(self, id: str) -> bool:
@@ -93,9 +143,55 @@ class VKValidator:
             if len(group) != 0:
                 return True
             return False
-        except Exception as e:
-            print(e)
+        except (ValueError, TypeError):
+            # Invalid ID format
             return False
+        except Exception:
+            # Any other API or network error
+            return False
+
+    def validate_group_id(self, id: str) -> None:
+        """
+        Validate that group with given ID exists.
+
+        This method verifies that a VK group with the specified ID exists and is
+        accessible via the VK API. It raises specific exceptions for different
+        error scenarios.
+
+        Args:
+            id: VK group ID to validate
+
+        Raises:
+            ValidationError: If group ID format is invalid
+            ResourceNotFoundError: If group with given ID does not exist
+            APIError: If VK API call fails
+        """
+        try:
+            group_id = int(id)
+        except ValueError as e:
+            raise ValidationError(
+                f"Invalid group ID format: {id}",
+                details="Group ID must be a valid integer",
+                original_exception=e,
+            ) from e
+
+        try:
+            group = self._authenticator.vk.groups.getById(group_id=group_id)
+            if len(group) == 0:
+                raise ResourceNotFoundError(
+                    f"Group with ID {id} does not exist",
+                    resource_type="group",
+                    resource_id=id,
+                )
+        except ResourceNotFoundError:
+            raise
+        except Exception as e:
+            raise APIError(
+                f"Failed to validate group ID: {id}",
+                details=f"VK API error: {e}",
+                original_exception=e,
+                api_method="groups.getById",
+            ) from e
 
     def check_group_ids(self, ids_list: str) -> bool:
         """
@@ -121,6 +217,7 @@ class VKValidator:
                     return False
             return True
         except Exception:
+            # Any parsing or iteration error
             return False
 
     def check_chat_id(self, id: str) -> bool:
@@ -150,5 +247,56 @@ class VKValidator:
             if conversation["count"] != 0:
                 return True
             return False
-        except Exception:
+        except (ValueError, TypeError):
+            # Invalid ID format
             return False
+        except Exception:
+            # Any other API or network error
+            return False
+
+    def validate_chat_id(self, id: str) -> None:
+        """
+        Validate that chat with given ID exists.
+
+        This method verifies that a VK chat with the specified ID exists and is
+        accessible via the VK API. It raises specific exceptions for different
+        error scenarios.
+
+        Args:
+            id: VK chat ID to validate
+
+        Raises:
+            ValidationError: If chat ID format is invalid
+            ResourceNotFoundError: If chat with given ID does not exist
+            APIError: If VK API call fails
+        """
+        try:
+            chat_id = int(id)
+        except ValueError as e:
+            raise ValidationError(
+                f"Invalid chat ID format: {id}",
+                details="Chat ID must be a valid integer",
+                original_exception=e,
+            ) from e
+
+        try:
+            # Chat IDs are converted to peer_ids by adding 2000000000
+            peer_id = 2000000000 + chat_id
+            conversation = self._authenticator.vk.messages.getConversationsById(
+                peer_ids=peer_id
+            )
+            if conversation["count"] == 0:
+                raise ResourceNotFoundError(
+                    f"Chat with ID {id} does not exist",
+                    resource_type="chat",
+                    resource_id=id,
+                )
+        except ResourceNotFoundError:
+            raise
+        except Exception as e:
+            raise APIError(
+                f"Failed to validate chat ID: {id}",
+                details=f"VK API error: {e}",
+                original_exception=e,
+                api_method="messages.getConversationsById",
+            ) from e

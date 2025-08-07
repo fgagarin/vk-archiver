@@ -9,6 +9,9 @@ from vk_api.vk_api import VkApiMethod
 
 from ..filter import check_for_duplicates
 from ..functions import download_photos
+from ..utils.exceptions import (
+    InitializationError,
+)
 from .user import UsersPhotoDownloader
 
 if TYPE_CHECKING:
@@ -58,13 +61,15 @@ class ChatMembersPhotoDownloader:
         5. Organizes photos by chat name and member names
 
         Raises:
-            RuntimeError: If utils instance is not initialized
+            InitializationError: If utils instance is not initialized
 
         Note:
             Skips empty chats and provides appropriate logging messages.
         """
         if utils is None:
-            raise RuntimeError("Utils instance not initialized")
+            raise InitializationError(
+                "Utils instance not initialized", component="ChatMembersPhotoDownloader"
+            )
 
         chat_title = utils.get_chat_title(str(self.chat_id))
         chat_path = DOWNLOADS_DIR.joinpath(chat_title)
@@ -151,14 +156,16 @@ class ChatPhotoDownloader:
         5. Provides detailed logging of the download process
 
         Raises:
-            RuntimeError: If utils instance is not initialized
+            InitializationError: If utils instance is not initialized
 
         Note:
             Photos are downloaded concurrently for better performance.
             Duplicate detection is performed after download completion.
         """
         if utils is None:
-            raise RuntimeError("Utils instance not initialized")
+            raise InitializationError(
+                "Utils instance not initialized", component="ChatPhotoDownloader"
+            )
 
         chat_title = utils.get_chat_title(str(self.chat_id))
         photos_path = DOWNLOADS_DIR.joinpath(chat_title)
@@ -263,14 +270,16 @@ class ChatUserPhotoDownloader:
         5. Organizes photos by user name
 
         Raises:
-            RuntimeError: If utils instance is not initialized
+            InitializationError: If utils instance is not initialized
 
         Note:
             Photos are downloaded concurrently for better performance.
             Duplicate detection is performed after download completion.
         """
         if utils is None:
-            raise RuntimeError("Utils instance not initialized")
+            raise InitializationError(
+                "Utils instance not initialized", component="ChatUserPhotoDownloader"
+            )
 
         username = utils.get_username(self.chat_id)
 
