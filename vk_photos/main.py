@@ -11,10 +11,10 @@ from vk_api.vk_api import VkApiMethod
 from pytils import numeral
 
 from .filter import check_for_duplicates
-from .functions import decline, download_photos, download_videos
+from .functions import decline, download_photos, download_videos, dump
 
 BASE_DIR = Path(__file__).resolve().parent
-DOWNLOADS_DIR = BASE_DIR.resolve().joinpath("downloads")
+DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 CONFIG_PATH = BASE_DIR.joinpath("config.yaml")
 VK_CONFIG_PATH = BASE_DIR.joinpath("vk_config.v2.json")
 
@@ -30,6 +30,7 @@ logger.disabled = True
 
 loop = asyncio.get_event_loop()
 
+
 class Utils:
     _vk: VkApiMethod | None = None
 
@@ -41,7 +42,7 @@ class Utils:
 
     def create_dir(self, dir_path: Path):
         if not dir_path.exists():
-            dir_path.mkdir()
+            dir_path.mkdir(parents=True, exist_ok=True)
 
     def remove_dir(self, dir_path: Path):
         if dir_path.exists():
@@ -145,9 +146,9 @@ class Utils:
         return group_name
 
     def get_chat_title(self, chat_id: str) -> str:
-        chat_title = self.vk.messages.getConversationsById(peer_ids=2000000000 + int(chat_id))[
-            "items"
-        ][0]["chat_settings"]["title"]
+        chat_title = self.vk.messages.getConversationsById(
+            peer_ids=2000000000 + int(chat_id)
+        )["items"][0]["chat_settings"]["title"]
         return chat_title
 
 
@@ -155,7 +156,9 @@ utils = Utils()
 
 
 class UserPhotoDownloader:
-    def __init__(self, user_id: str, vk_instance: VkApiMethod, parent_dir=DOWNLOADS_DIR):
+    def __init__(
+        self, user_id: str, vk_instance: VkApiMethod, parent_dir=DOWNLOADS_DIR
+    ):
         self.user_id = user_id
         self.vk = vk_instance
         self.parent_dir = parent_dir
@@ -280,7 +283,9 @@ class UserPhotoDownloader:
         return photos
 
     async def main(self):
-        user_info = self.vk.users.get(user_ids=self.user_id, fields="sex, photo_max_orig")[0]
+        user_info = self.vk.users.get(
+            user_ids=self.user_id, fields="sex, photo_max_orig"
+        )[0]
 
         decline_username = decline(
             first_name=user_info["first_name"],
@@ -355,6 +360,64 @@ class UsersPhotoDownloader:
     async def main(self):
         for user_id in self.user_ids:
             await UserPhotoDownloader(user_id, self.vk, self.parent_dir).main()
+
+
+class GroupAlbumsDownloader:
+    def __init__(self, group_id: str, vk_instance: VkApiMethod):
+        self.group_id = int(group_id)
+        self.vk = vk_instance
+
+    async def main(self):
+        group_info = self.vk.groups.getById(group_id=self.group_id)[0]
+        group_name = (
+            group_info["name"]
+            .replace("/", " ")
+            .replace("|", " ")
+            .replace(".", " ")
+            .strip()
+        )
+
+        group_dir = DOWNLOADS_DIR.joinpath(group_name)
+        utils.create_dir(group_dir)
+        dump(group_info, group_dir.joinpath("info.yaml"))
+
+        albums = self.vk.photos.getAlbums(owner_id=-self.group_id)["items"]
+
+        for album in albums:
+            aid = album["id"]
+            album_name = album["title"]
+            album_dir = group_dir.joinpath(album_name)
+            utils.create_dir(album_dir)
+            dump(album, album_dir.joinpath("info.yaml"))
+
+            photos = []
+            offset = 0
+            while True:
+                album_photos = self.vk.photos.get(
+                    owner_id=-self.group_id,
+                    album_id=aid,
+                    count=100,
+                    offset=offset,
+                    photo_sizes=True,
+                    extended=True,
+                )["items"]
+
+                for photo in album_photos:
+                    photos.append(
+                        {
+                            "id": photo["id"],
+                            "owner_id": photo["owner_id"],
+                            "url": photo["sizes"][-1]["url"],
+                            "likes": photo["likes"]["count"],
+                            "date": photo["date"],
+                        }
+                    )
+
+                if len(album_photos) < 100:
+                    break
+                offset += 100
+
+            await download_photos(album_dir, photos)
 
 
 class GroupPhotoDownloader:
@@ -559,7 +622,9 @@ class GroupsPhotoDownloader:
     async def get_photos(self, group_id, download_videos):
         offset = 0
         while True:
-            posts = self.vk.wall.get(owner_id=-group_id, count=100, offset=offset)["items"]
+            posts = self.vk.wall.get(owner_id=-group_id, count=100, offset=offset)[
+                "items"
+            ]
             for post in posts:
                 # Пропускаем посты с рекламой
                 if post["marked_as_ads"]:
@@ -581,9 +646,9 @@ class GroupsPhotoDownloader:
             logging.info("Получаем список видео")
             offset = 0
             while True:
-                videos = self.vk.video.get(owner_id=-group_id, count=100, offset=offset)[
-                    "items"
-                ]
+                videos = self.vk.video.get(
+                    owner_id=-group_id, count=100, offset=offset
+                )["items"]
                 for video in videos:
                     if "player" in video:
                         self.videos_list.append(
@@ -917,7 +982,9 @@ class ChatPhotoDownloader:
 
 
 class ChatUserPhotoDownloader:
-    def __init__(self, chat_id: str, vk_instance: VkApiMethod, parent_dir=DOWNLOADS_DIR):
+    def __init__(
+        self, chat_id: str, vk_instance: VkApiMethod, parent_dir=DOWNLOADS_DIR
+    ):
         self.chat_id = chat_id
         self.parent_dir = parent_dir
         self.vk = vk_instance
@@ -988,6 +1055,7 @@ def main():
     print("5. Скачать все фотографии участников беседы")
     print("6. Скачать все вложения беседы")
     print("7. Скачать все фотографии из чата пользователя")
+    print("8. Скачать все фотографии из альбомов группы")
 
     while True:
         time.sleep(0.1)
@@ -1011,7 +1079,9 @@ def main():
             while True:
                 user_ids = input("Введите id пользователей через запятую\n> ")
                 if utils.check_user_ids(user_ids):
-                    downloader = UsersPhotoDownloader(user_ids=user_ids.split(","), vk_instance=vk)
+                    downloader = UsersPhotoDownloader(
+                        user_ids=user_ids.split(","), vk_instance=vk
+                    )
                     loop.run_until_complete(downloader.main())
                     break
                 else:
@@ -1037,7 +1107,9 @@ def main():
             while True:
                 group_ids = input("Введите id групп через запятую\n> ")
                 if utils.check_group_ids(group_ids):
-                    downloader = GroupsPhotoDownloader(group_ids=group_ids, vk_instance=vk)
+                    downloader = GroupsPhotoDownloader(
+                        group_ids=group_ids, vk_instance=vk
+                    )
                     loop.run_until_complete(downloader.main())
                     break
                 else:
@@ -1083,11 +1155,24 @@ def main():
                     logging.info("Пользователя с таким id не существует")
                     time.sleep(0.1)
             break
+        elif downloader_type == "8":
+            vk = utils.auth_by_token()
+            time.sleep(0.1)
+            while True:
+                id = input("Введите id группы\n> ")
+                if utils.check_group_id(id):
+                    downloader = GroupAlbumsDownloader(group_id=id, vk_instance=vk)
+                    loop.run_until_complete(downloader.main())
+                    break
+                else:
+                    logging.info("Групп с таким id не существует")
+                    time.sleep(0.1)
         else:
             logging.info("Неправильная команда")
 
     if VK_CONFIG_PATH.exists():
         VK_CONFIG_PATH.unlink()
+
 
 if __name__ == "__main__":
     main()

@@ -7,6 +7,7 @@ import asyncio
 from tqdm.asyncio import tqdm
 from pytrovich.enums import NamePart, Gender, Case
 from pytrovich.maker import PetrovichDeclinationMaker
+import yaml
 import yt_dlp
 
 maker = PetrovichDeclinationMaker()
@@ -32,6 +33,11 @@ def decline(first_name, last_name, sex):
 def write_json(data, title="data"):
     with open(title + ".json", "w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
+
+
+def dump(data, file_path: Path):
+    with open(file_path, "w", encoding="utf-8") as file:
+        yaml.dump(data, file, indent=2, allow_unicode=True)
 
 
 async def download_photo(
