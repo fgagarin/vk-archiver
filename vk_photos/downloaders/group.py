@@ -47,7 +47,20 @@ class GroupAlbumsDownloader:
         self.vk = vk_instance
 
     async def main(self) -> None:
-        """Download all albums from the group."""
+        """
+        Download all albums from the group.
+
+        This method downloads all photos from all albums of a VK group:
+        1. Retrieves group information and creates group directory
+        2. Gets list of all albums in the group
+        3. For each album, creates album directory and downloads all photos
+        4. Saves group and album metadata as YAML files
+        5. Organizes photos by group name and album name
+
+        Note:
+            Photos are downloaded with full metadata including likes and dates.
+            Group and album information is preserved in info.yaml files.
+        """
         group_info = self.vk.groups.getById(group_id=self.group_id)[0]
         group_name = (
             group_info["name"]
@@ -120,8 +133,17 @@ class GroupPhotoDownloader:
         """
         Get photos from group wall.
 
+        This method retrieves all photos and optionally videos from a group's wall posts.
+        It processes posts sequentially, handling both regular posts and reposts,
+        and extracts photo attachments from each post.
+
         Args:
             download_videos: Whether to download videos ("1" for yes, "2" for no)
+
+        Note:
+            - Skips posts marked as advertisements
+            - Handles reposts by processing copy_history
+            - Collects videos separately if download_videos is enabled
         """
         offset = 0
         while True:
@@ -174,8 +196,17 @@ class GroupPhotoDownloader:
         """
         Process all attachments in a post and select only images.
 
+        This method extracts photo attachments from a single VK post and adds them
+        to the photos list for downloading. It filters for photo type attachments
+        and extracts the highest resolution URL available.
+
         Args:
-            post: Post dictionary containing attachments
+            post: Post dictionary containing attachments array
+
+        Note:
+            Only processes attachments of type "photo" and skips other types.
+            Uses the highest resolution photo URL available from the sizes array.
+            Video processing is commented out due to performance concerns.
         """
         try:
             for i, attachment in enumerate(post["attachments"]):
@@ -219,8 +250,19 @@ class GroupPhotoDownloader:
         """
         Download photos from group wall.
 
+        This method orchestrates the photo downloading process for a single group:
+        1. Retrieves group information and creates group directory
+        2. Handles closed groups by downloading a placeholder image
+        3. For open groups, retrieves all photos and optionally videos from wall posts
+        4. Downloads all collected media with progress tracking
+        5. Provides detailed logging of the download process
+
         Args:
-            download_videos_flag: Whether to also download videos
+            download_videos_flag: Whether to also download videos from the group
+
+        Note:
+            Closed groups result in downloading a placeholder community image.
+            Photos and videos are downloaded concurrently for better performance.
         """
         # Получаем информацию о группе
         group_info = self.vk.groups.getById(group_id=self.group_id)[0]

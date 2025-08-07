@@ -132,11 +132,18 @@ class Utils:
         """
         Get username by user ID.
 
+        This method retrieves a user's full name from the VK API using their
+        user ID. It combines the first and last name into a single string.
+
         Args:
-            user_id: VK user ID
+            user_id: VK user ID to get the username for
 
         Returns:
-            User's full name
+            User's full name as "First Last" format
+
+        Note:
+            Uses the VK API users.get method to retrieve user information.
+            Returns the combined first and last name as a string.
         """
         user = self.vk.users.get(user_id=user_id)[0]
         first_name = str(user["first_name"])
@@ -147,11 +154,19 @@ class Utils:
         """
         Get group title by group ID.
 
+        This method retrieves a group's name from the VK API using their
+        group ID. It sanitizes the name by replacing problematic characters
+        that could cause issues in file system operations.
+
         Args:
-            group_id: VK group ID
+            group_id: VK group ID to get the title for
 
         Returns:
-            Group name with sanitized characters
+            Group name with sanitized characters (/, |, . replaced with spaces)
+
+        Note:
+            Uses the VK API groups.getById method to retrieve group information.
+            Sanitizes the name to ensure it's safe for use as a directory name.
         """
         group_info = self.vk.groups.getById(group_id=group_id)
         group_name = (
@@ -167,11 +182,20 @@ class Utils:
         """
         Get chat title by chat ID.
 
+        This method retrieves a chat's title from the VK API using the chat ID.
+        It converts the chat ID to a peer ID and uses the messages API to
+        get conversation information.
+
         Args:
-            chat_id: VK chat ID
+            chat_id: VK chat ID to get the title for
 
         Returns:
-            Chat title
+            Chat title as a string
+
+        Note:
+            Uses the VK API messages.getConversationsById method.
+            Chat IDs are converted to peer IDs by adding 2000000000.
+            Returns the chat_settings.title from the conversation data.
         """
         conversation = self.vk.messages.getConversationsById(
             peer_ids=2000000000 + int(chat_id)

@@ -201,7 +201,20 @@ def main(
 )
 @click.pass_context
 def user(ctx: click.Context, user_id: str) -> None:
-    """Download all photos from a single user profile."""
+    """
+    Download all photos from a single user profile.
+
+    This command downloads photos from a VK user's profile, including saved photos,
+    profile photos, wall photos, and all photos. The photos are organized by user
+    name in the output directory.
+
+    Args:
+        ctx: Click context containing output directory and other options
+        user_id: VK user ID to download photos from
+
+    Raises:
+        click.BadParameter: If user ID is invalid or user doesn't exist
+    """
     validated_user_id = CLIParameterValidator.validate_user_id(user_id)
     if validated_user_id is None:
         raise click.BadParameter("User ID is required")
@@ -226,7 +239,19 @@ def user(ctx: click.Context, user_id: str) -> None:
 )
 @click.pass_context
 def users(ctx: click.Context, user_ids: str) -> None:
-    """Download all photos from multiple user profiles."""
+    """
+    Download all photos from multiple user profiles.
+
+    This command downloads photos from multiple VK user profiles. Each user's photos
+    are downloaded sequentially and organized in separate directories by user name.
+
+    Args:
+        ctx: Click context containing output directory and other options
+        user_ids: Comma-separated list of VK user IDs to download photos from
+
+    Raises:
+        click.BadParameter: If any user ID is invalid or user doesn't exist
+    """
     user_id_list = [uid.strip() for uid in user_ids.split(",")]
 
     # Validate each user ID
@@ -252,7 +277,20 @@ def users(ctx: click.Context, user_ids: str) -> None:
 )
 @click.pass_context
 def group(ctx: click.Context, group_id: str) -> None:
-    """Download all photos from a single group wall."""
+    """
+    Download all photos from a single group wall.
+
+    This command downloads photos from a VK group's wall posts. It processes all
+    posts in the group and extracts photos and optionally videos from each post.
+    Photos are organized by group name in the output directory.
+
+    Args:
+        ctx: Click context containing output directory, download_videos, and other options
+        group_id: VK group ID to download photos from
+
+    Raises:
+        click.BadParameter: If group ID is invalid or group doesn't exist
+    """
     validated_group_id = CLIParameterValidator.validate_group_id(group_id)
     if validated_group_id is None:
         raise click.BadParameter("Group ID is required")
@@ -275,7 +313,20 @@ def group(ctx: click.Context, group_id: str) -> None:
 )
 @click.pass_context
 def groups(ctx: click.Context, group_ids: str) -> None:
-    """Download all photos from multiple group walls."""
+    """
+    Download all photos from multiple group walls.
+
+    This command downloads photos from multiple VK group walls. Each group's photos
+    are downloaded sequentially and organized in separate directories by group name.
+    Videos can also be downloaded if the --download-videos flag is set.
+
+    Args:
+        ctx: Click context containing output directory, download_videos, and other options
+        group_ids: Comma-separated list of VK group IDs to download photos from
+
+    Raises:
+        click.BadParameter: If any group ID is invalid or group doesn't exist
+    """
     group_id_list = [gid.strip() for gid in group_ids.split(",")]
 
     # Validate each group ID
@@ -301,7 +352,20 @@ def groups(ctx: click.Context, group_ids: str) -> None:
 )
 @click.pass_context
 def chat_members(ctx: click.Context, chat_id: str) -> None:
-    """Download all photos from chat members."""
+    """
+    Download all photos from chat members.
+
+    This command downloads photos from all members of a VK chat conversation.
+    It retrieves the list of chat members and downloads their profile photos
+    and other photos from their profiles. Photos are organized by chat name.
+
+    Args:
+        ctx: Click context containing output directory and other options
+        chat_id: VK chat ID to download member photos from
+
+    Raises:
+        click.BadParameter: If chat ID is invalid or chat doesn't exist
+    """
     validated_chat_id = CLIParameterValidator.validate_chat_id(chat_id)
     if validated_chat_id is None:
         raise click.BadParameter("Chat ID is required")
@@ -324,7 +388,20 @@ def chat_members(ctx: click.Context, chat_id: str) -> None:
 )
 @click.pass_context
 def chat_attachments(ctx: click.Context, chat_id: str) -> None:
-    """Download all attachments from a chat conversation."""
+    """
+    Download all attachments from a chat conversation.
+
+    This command downloads all photo attachments from a VK chat conversation.
+    It retrieves the chat history and extracts all photo attachments from
+    messages. Photos are organized by chat name in the output directory.
+
+    Args:
+        ctx: Click context containing output directory and other options
+        chat_id: VK chat ID to download attachments from
+
+    Raises:
+        click.BadParameter: If chat ID is invalid or chat doesn't exist
+    """
     validated_chat_id = CLIParameterValidator.validate_chat_id(chat_id)
     if validated_chat_id is None:
         raise click.BadParameter("Chat ID is required")
@@ -347,7 +424,20 @@ def chat_attachments(ctx: click.Context, chat_id: str) -> None:
 )
 @click.pass_context
 def user_chat(ctx: click.Context, user_id: str) -> None:
-    """Download all photos from a user's chat conversation."""
+    """
+    Download all photos from a user's chat conversation.
+
+    This command downloads all photo attachments from a private chat conversation
+    with a specific VK user. It retrieves the chat history and extracts all
+    photo attachments from messages. Photos are organized by user name.
+
+    Args:
+        ctx: Click context containing output directory and other options
+        user_id: VK user ID to download chat photos from
+
+    Raises:
+        click.BadParameter: If user ID is invalid or user doesn't exist
+    """
     validated_user_id = CLIParameterValidator.validate_user_id(user_id)
     if validated_user_id is None:
         raise click.BadParameter("User ID is required")
@@ -372,7 +462,20 @@ def user_chat(ctx: click.Context, user_id: str) -> None:
 )
 @click.pass_context
 def group_albums(ctx: click.Context, group_id: str) -> None:
-    """Download all photos from group albums."""
+    """
+    Download all photos from group albums.
+
+    This command downloads all photos from all albums of a VK group. It retrieves
+    the list of albums and downloads all photos from each album. Photos are
+    organized by group name and album name in the output directory.
+
+    Args:
+        ctx: Click context containing output directory and other options
+        group_id: VK group ID to download albums from
+
+    Raises:
+        click.BadParameter: If group ID is invalid or group doesn't exist
+    """
     validated_group_id = CLIParameterValidator.validate_group_id(group_id)
     if validated_group_id is None:
         raise click.BadParameter("Group ID is required")

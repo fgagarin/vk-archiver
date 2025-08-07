@@ -44,11 +44,20 @@ class VKAuthenticator:
         """
         Authenticate using VK access token only.
 
+        This method authenticates with the VK API using a token-based approach.
+        It validates that a token is present in the configuration and attempts
+        to create a VK API session. The token should be obtained from the
+        VK application settings.
+
         Returns:
             VkApiMethod: Authenticated VK API instance
 
         Raises:
-            RuntimeError: If token is missing or invalid
+            RuntimeError: If token is missing from configuration or invalid
+
+        Note:
+            Token can be obtained from: https://vkhost.github.io/
+            The method provides helpful logging messages for troubleshooting.
         """
         config = self._config_manager.get_config()
 
@@ -71,8 +80,15 @@ class VKAuthenticator:
         """
         Get current user ID from VK API.
 
+        This method retrieves the current user's ID from the VK API using
+        the account.getProfileInfo method. It requires a valid authenticated
+        VK API instance.
+
         Returns:
-            Current user ID
+            Current user ID as an integer
+
+        Raises:
+            RuntimeError: If VK API is not initialized (call auth_by_token first)
         """
         profile_info = self.vk.account.getProfileInfo()
         return int(profile_info["id"])

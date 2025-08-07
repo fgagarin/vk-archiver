@@ -22,11 +22,19 @@ class VKValidator:
         """
         Check if user with given ID exists.
 
+        This method verifies that a VK user with the specified ID exists and is
+        accessible via the VK API. It attempts to retrieve user information
+        and returns True if the user is found.
+
         Args:
             id: VK user ID to check
 
         Returns:
-            True if user exists, False otherwise
+            True if user exists and is accessible, False otherwise
+
+        Note:
+            Returns False for any API errors, including invalid IDs, deleted
+            accounts, or network issues.
         """
         try:
             # Проверяем, существует ли пользователь с таким id
@@ -39,11 +47,19 @@ class VKValidator:
         """
         Check if all users with given IDs exist.
 
+        This method verifies that all VK users in a comma-separated list exist
+        and are accessible. It checks each user ID individually and returns
+        True only if all users are found.
+
         Args:
-            ids_list: Comma-separated list of VK user IDs
+            ids_list: Comma-separated list of VK user IDs to check
 
         Returns:
-            True if all users exist, False otherwise
+            True if all users exist and are accessible, False if any user
+            is not found or inaccessible
+
+        Note:
+            Stops checking at the first invalid user ID for efficiency.
         """
         try:
             for user_id in ids_list.split(","):
@@ -57,11 +73,19 @@ class VKValidator:
         """
         Check if group with given ID exists.
 
+        This method verifies that a VK group with the specified ID exists and is
+        accessible via the VK API. It attempts to retrieve group information
+        and returns True if the group is found.
+
         Args:
             id: VK group ID to check
 
         Returns:
-            True if group exists, False otherwise
+            True if group exists and is accessible, False otherwise
+
+        Note:
+            Returns False for any API errors, including invalid IDs, deleted
+            groups, or network issues. Prints error details for debugging.
         """
         try:
             # Проверяем, существует ли группа с таким id
@@ -77,11 +101,19 @@ class VKValidator:
         """
         Check if all groups with given IDs exist.
 
+        This method verifies that all VK groups in a comma-separated list exist
+        and are accessible. It checks each group ID individually and returns
+        True only if all groups are found.
+
         Args:
-            ids_list: Comma-separated list of VK group IDs
+            ids_list: Comma-separated list of VK group IDs to check
 
         Returns:
-            True if all groups exist, False otherwise
+            True if all groups exist and are accessible, False if any group
+            is not found or inaccessible
+
+        Note:
+            Stops checking at the first invalid group ID for efficiency.
         """
         try:
             for group_id in ids_list.split(","):
@@ -95,11 +127,20 @@ class VKValidator:
         """
         Check if chat with given ID exists.
 
+        This method verifies that a VK chat with the specified ID exists and is
+        accessible via the VK API. It attempts to retrieve chat information
+        using the messages.getConversationsById method.
+
         Args:
             id: VK chat ID to check
 
         Returns:
-            True if chat exists, False otherwise
+            True if chat exists and is accessible, False otherwise
+
+        Note:
+            Returns False for any API errors, including invalid IDs, deleted
+            chats, or network issues. Chat IDs are converted to peer_ids
+            by adding 2000000000.
         """
         try:
             # Проверяем, существует ли беседа с таким id

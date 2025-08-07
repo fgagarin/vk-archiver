@@ -109,9 +109,15 @@ async def download_video(video_path: Path, video_link: str) -> None:
     """
     Download a video using yt-dlp.
 
+    This function downloads a video from a VK video URL using yt-dlp library.
+    The video is saved to the specified path with retry logic for reliability.
+
     Args:
-        video_path: Path where to save the video
-        video_link: URL of the video to download
+        video_path: Path where to save the video file
+        video_link: URL of the video to download from VK
+
+    Note:
+        Uses yt-dlp with quiet mode and 10 retries for robust downloading.
     """
     ydl_opts = {"outtmpl": f"{video_path}", "quiet": True, "retries": 10}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -123,9 +129,17 @@ async def download_videos(videos_path: Path, videos: list[dict[str, Any]]) -> No
     """
     Download multiple videos concurrently.
 
+    This function downloads multiple videos from VK concurrently using asyncio.
+    Each video is downloaded using yt-dlp and saved with a filename based on
+    owner_id and video_id.
+
     Args:
-        videos_path: Directory path where to save videos
-        videos: List of video dictionaries containing 'owner_id', 'id', and 'player' keys
+        videos_path: Directory path where to save video files
+        videos: List of video dictionaries containing 'owner_id', 'id', and 'player' keys.
+               The 'player' key contains the video URL for downloading.
+
+    Note:
+        Videos are downloaded concurrently with progress tracking using tqdm.
     """
     futures = []
     for _i, video in enumerate(videos, start=1):

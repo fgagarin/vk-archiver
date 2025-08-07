@@ -54,8 +54,18 @@ class UserPhotoDownloader:
         """
         Get all photos from user profile.
 
+        This method retrieves all photos from a VK user's profile, including:
+        - Saved photos (saved album)
+        - Profile photos (profile album)
+        - Wall photos (wall album)
+        - All photos (getAll method)
+
         Returns:
-            List of photo dictionaries with metadata
+            List of photo dictionaries containing 'id', 'owner_id', 'url', 'likes', and 'date' keys.
+            Photos are sorted by date in descending order.
+
+        Note:
+            Each photo dictionary contains the highest resolution URL available.
         """
         photos: list[dict[str, Any]] = []
 
@@ -176,7 +186,19 @@ class UserPhotoDownloader:
         return photos
 
     async def main(self) -> None:
-        """Main method to download photos from user profile."""
+        """
+        Main method to download photos from user profile.
+
+        This method orchestrates the entire photo downloading process for a single user:
+        1. Retrieves user information including name and profile status
+        2. Creates appropriate directory structure
+        3. Handles deactivated or closed profiles gracefully
+        4. Downloads all available photos with progress tracking
+        5. Provides detailed logging of the download process
+
+        Raises:
+            RuntimeError: If utils instance is not initialized
+        """
         user_info = self.vk.users.get(
             user_ids=self.user_id, fields="sex, photo_max_orig"
         )[0]
@@ -272,6 +294,16 @@ class UsersPhotoDownloader:
         self.parent_dir = parent_dir
 
     async def main(self) -> None:
-        """Main method to download photos from multiple user profiles."""
+        """
+        Main method to download photos from multiple user profiles.
+
+        This method downloads photos from all specified user profiles sequentially.
+        Each user's photos are downloaded using the UserPhotoDownloader class
+        and organized in separate directories by user name.
+
+        Note:
+            Downloads are processed one user at a time to avoid overwhelming
+            the VK API and to provide clear progress tracking.
+        """
         for user_id in self.user_ids:
             await UserPhotoDownloader(user_id, self.vk, self.parent_dir).main()

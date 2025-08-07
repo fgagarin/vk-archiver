@@ -47,7 +47,22 @@ class ChatMembersPhotoDownloader:
         self.vk = vk_instance
 
     async def main(self) -> None:
-        """Download photos from all chat members."""
+        """
+        Download photos from all chat members.
+
+        This method downloads photos from all members of a VK chat conversation:
+        1. Retrieves chat information and creates chat directory
+        2. Gets list of all chat members
+        3. Filters out the current user from the member list
+        4. Downloads photos from each member using UsersPhotoDownloader
+        5. Organizes photos by chat name and member names
+
+        Raises:
+            RuntimeError: If utils instance is not initialized
+
+        Note:
+            Skips empty chats and provides appropriate logging messages.
+        """
         if utils is None:
             raise RuntimeError("Utils instance not initialized")
 
@@ -94,8 +109,18 @@ class ChatPhotoDownloader:
         """
         Get photo attachments from chat history.
 
+        This method retrieves all photo attachments from a VK chat conversation
+        by iterating through the chat history. It processes messages sequentially
+        and extracts photo attachments from each message.
+
         Returns:
-            List of photo attachment data
+            List of photo attachment dictionaries containing 'id', 'owner_id', 'url',
+            'likes', and 'date' keys. Each dictionary represents a photo found in
+            the chat history.
+
+        Note:
+            Uses VK API's getHistoryAttachments method to efficiently retrieve
+            attachments from the entire chat history.
         """
         raw_data = self.vk.messages.getHistoryAttachments(
             peer_id=2000000000 + self.chat_id, media_type="photo"
@@ -115,7 +140,23 @@ class ChatPhotoDownloader:
         return photos
 
     async def main(self) -> None:
-        """Download all photo attachments from chat."""
+        """
+        Download all photo attachments from chat.
+
+        This method downloads all photo attachments from a VK chat conversation:
+        1. Retrieves chat information and creates chat directory
+        2. Gets all photo attachments from chat history
+        3. Downloads all photos with progress tracking
+        4. Checks for and removes duplicate files
+        5. Provides detailed logging of the download process
+
+        Raises:
+            RuntimeError: If utils instance is not initialized
+
+        Note:
+            Photos are downloaded concurrently for better performance.
+            Duplicate detection is performed after download completion.
+        """
         if utils is None:
             raise RuntimeError("Utils instance not initialized")
 
@@ -180,8 +221,17 @@ class ChatUserPhotoDownloader:
         """
         Get photo attachments from user chat history.
 
+        This method retrieves all photo attachments from a private chat conversation
+        with a specific VK user by iterating through the chat history.
+
         Returns:
-            List of photo attachment data
+            List of photo attachment dictionaries containing 'id', 'owner_id', 'url',
+            'likes', and 'date' keys. Each dictionary represents a photo found in
+            the private chat history.
+
+        Note:
+            Uses VK API's getHistoryAttachments method to efficiently retrieve
+            attachments from the entire private chat history.
         """
         raw_data = self.vk.messages.getHistoryAttachments(
             peer_id=self.chat_id, media_type="photo"
@@ -201,7 +251,24 @@ class ChatUserPhotoDownloader:
         return photos
 
     async def main(self) -> None:
-        """Download all photo attachments from user chat conversation."""
+        """
+        Download all photo attachments from user chat conversation.
+
+        This method downloads all photo attachments from a private chat conversation
+        with a specific VK user:
+        1. Retrieves user information and creates user directory
+        2. Gets all photo attachments from private chat history
+        3. Downloads all photos with progress tracking
+        4. Checks for and removes duplicate files
+        5. Organizes photos by user name
+
+        Raises:
+            RuntimeError: If utils instance is not initialized
+
+        Note:
+            Photos are downloaded concurrently for better performance.
+            Duplicate detection is performed after download completion.
+        """
         if utils is None:
             raise RuntimeError("Utils instance not initialized")
 
