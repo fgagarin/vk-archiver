@@ -2,6 +2,7 @@
 # if running in py3, change the shebang, drop the next import for readability (it does no harm in py3)
 from collections import defaultdict
 import hashlib
+import logging
 from pathlib import Path
 
 
@@ -70,6 +71,6 @@ def check_for_duplicates(path: Path) -> int:
                 hashes_full[full_hash] = filename
 
     for file in duplicates:
-        file.unlink()
+        logging.info(f"Skipping duplicate file instead of deleting: {file}")
 
     return len(duplicates)

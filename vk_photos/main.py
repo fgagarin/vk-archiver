@@ -69,15 +69,7 @@ class Utils:
         if not dir_path.exists():
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    def remove_dir(self, dir_path: Path) -> None:
-        """
-        Remove directory if it exists.
 
-        Args:
-            dir_path: Path to the directory to remove
-        """
-        if dir_path.exists():
-            dir_path.rmdir()
 
     def auth_by_token(self) -> VkApiMethod:
         """
@@ -354,7 +346,7 @@ class UserPhotoDownloader:
         # Страница пользователя удалена
         if "deactivated" in user_info:
             logging.info("Эта страница удалена")
-            utils.remove_dir(photos_path)
+            logging.info(f"Skipping download for deactivated user profile: {photos_path}")
         else:
             # Профиль закрыт
             if user_info["is_closed"] and not user_info["can_access_closed"]:
@@ -880,7 +872,7 @@ class ChatMembersPhotoDownloader:
 
         if members == []:
             logging.info("Вы вышли из этой беседы")
-            utils.remove_dir(chat_path)
+            logging.info(f"Skipping download for empty chat: {chat_path}")
         else:
             members_ids = []
 
@@ -1223,8 +1215,7 @@ def main():
         else:
             logging.info("Неправильная команда")
 
-    if VK_CONFIG_PATH.exists():
-        VK_CONFIG_PATH.unlink()
+
 
 
 if __name__ == "__main__":
