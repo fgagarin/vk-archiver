@@ -1,14 +1,14 @@
+import asyncio
 import json
 from pathlib import Path
 
-import aiohttp
 import aiofiles
-import asyncio
-from tqdm.asyncio import tqdm
-from pytrovich.enums import NamePart, Gender, Case
-from pytrovich.maker import PetrovichDeclinationMaker
+import aiohttp
 import yaml
 import yt_dlp
+from pytrovich.enums import Case, Gender, NamePart
+from pytrovich.maker import PetrovichDeclinationMaker
+from tqdm.asyncio import tqdm
 
 maker = PetrovichDeclinationMaker()
 
@@ -56,7 +56,7 @@ async def download_photo(
 async def download_photos(photos_path: Path, photos: list):
     async with aiohttp.ClientSession() as session:
         futures = []
-        for i, photo in enumerate(photos, start=1):
+        for _i, photo in enumerate(photos, start=1):
             photo_title = "{}_{}.jpg".format(photo["owner_id"], photo["id"])
             photo_path = photos_path.joinpath(photo_title)
             futures.append(download_photo(session, photo["url"], photo_path))
@@ -66,15 +66,15 @@ async def download_photos(photos_path: Path, photos: list):
 
 
 async def download_video(video_path, video_link):
-    ydl_opts = {"outtmpl": "{}".format(video_path), "quiet": True, "retries": 10}
+    ydl_opts = {"outtmpl": f"{video_path}", "quiet": True, "retries": 10}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download(video_link)
-        print("Видео загружено: {}".format(video_link))
+        print(f"Видео загружено: {video_link}")
 
 
 async def download_videos(videos_path: Path, videos: list):
     futures = []
-    for i, video in enumerate(videos, start=1):
+    for _i, video in enumerate(videos, start=1):
         filename = "{}_{}.mp4".format(
             video["owner_id"], video["id"]
         )  # , video["title"])

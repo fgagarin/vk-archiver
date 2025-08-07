@@ -1,14 +1,15 @@
+import asyncio
+import logging
 import math
 import time
-import logging
 from pathlib import Path
 
-import yaml
+import click
 import requests
-import asyncio
 import vk_api
-from vk_api.vk_api import VkApiMethod
+import yaml
 from pytils import numeral
+from vk_api.vk_api import VkApiMethod
 
 from .filter import check_for_duplicates
 from .functions import decline, download_photos, download_videos, dump
@@ -29,6 +30,109 @@ logger = logging.getLogger("vk_api")
 logger.disabled = True
 
 loop = asyncio.get_event_loop()
+
+
+class CLIParameterValidator:
+    """Validate CLI parameters for VK Photos downloader."""
+
+    @staticmethod
+    def validate_user_id(user_id: str | None) -> str | None:
+        """
+        Validate user ID parameter.
+
+        Args:
+            user_id: User ID to validate
+
+        Returns:
+            Validated user ID or None
+
+        Raises:
+            click.BadParameter: If user ID is invalid
+        """
+        if user_id is None:
+            return None
+
+        try:
+            user_id_int = int(user_id)
+            if 1 <= user_id_int <= 2147483647:
+                return user_id
+        except ValueError:
+            pass
+
+        raise click.BadParameter(f"Invalid user ID: {user_id}")
+
+    @staticmethod
+    def validate_group_id(group_id: str | None) -> str | None:
+        """
+        Validate group ID parameter.
+
+        Args:
+            group_id: Group ID to validate
+
+        Returns:
+            Validated group ID or None
+
+        Raises:
+            click.BadParameter: If group ID is invalid
+        """
+        if group_id is None:
+            return None
+
+        try:
+            group_id_int = int(group_id)
+            if 1 <= group_id_int <= 2147483647:
+                return group_id
+        except ValueError:
+            pass
+
+        raise click.BadParameter(f"Invalid group ID: {group_id}")
+
+    @staticmethod
+    def validate_chat_id(chat_id: str | None) -> str | None:
+        """
+        Validate chat ID parameter.
+
+        Args:
+            chat_id: Chat ID to validate
+
+        Returns:
+            Validated chat ID or None
+
+        Raises:
+            click.BadParameter: If chat ID is invalid
+        """
+        if chat_id is None:
+            return None
+
+        try:
+            chat_id_int = int(chat_id)
+            if 1 <= chat_id_int <= 2147483647:
+                return chat_id
+        except ValueError:
+            pass
+
+        raise click.BadParameter(f"Invalid chat ID: {chat_id}")
+
+    @staticmethod
+    def validate_output_dir(output_dir: str) -> Path:
+        """
+        Validate and create output directory.
+
+        Args:
+            output_dir: Output directory path
+
+        Returns:
+            Path object for output directory
+
+        Raises:
+            click.BadParameter: If directory cannot be created
+        """
+        try:
+            path = Path(output_dir)
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+        except Exception as e:
+            raise click.BadParameter(f"Cannot create output directory: {e}") from e
 
 
 class Utils:
@@ -56,7 +160,9 @@ class Utils:
     def vk(self) -> VkApiMethod:
         """Get authenticated VK API instance."""
         if self._vk is None:
-            raise RuntimeError("VK API not initialized. Run `auth_by_token` method first.")
+            raise RuntimeError(
+                "VK API not initialized. Run `auth_by_token` method first."
+            )
         return self._vk
 
     def create_dir(self, dir_path: Path) -> None:
@@ -68,8 +174,6 @@ class Utils:
         """
         if not dir_path.exists():
             dir_path.mkdir(parents=True, exist_ok=True)
-
-
 
     def auth_by_token(self) -> VkApiMethod:
         """
@@ -94,7 +198,7 @@ class Utils:
         except Exception as e:
             logging.error(f"Authentication failed: {e}")
             logging.info("Get token from: https://vkhost.github.io/")
-            raise RuntimeError("Invalid VK access token")
+            raise RuntimeError("Invalid VK access token") from e
 
     def check_user_id(self, id: str) -> bool:
         """
@@ -151,13 +255,22 @@ class Utils:
             print(e)
             return False
 
-    def check_group_ids(self, ids_list) -> bool:
+    def check_group_ids(self, ids_list: str) -> bool:
+        """
+        Check if all groups with given IDs exist.
+
+        Args:
+            ids_list: Comma-separated list of VK group IDs
+
+        Returns:
+            True if all groups exist, False otherwise
+        """
         try:
             for group_id in ids_list.split(","):
                 if not self.check_group_id(group_id):
                     return False
             return True
-        except:
+        except Exception:
             return False
 
     def check_chat_id(self, id: str) -> bool:
@@ -169,17 +282,41 @@ class Utils:
             if conversation["count"] != 0:
                 return True
             return False
-        except:
+        except Exception:
             return False
 
-    def get_user_id(self):
+    def get_user_id(self) -> int:
+        """
+        Get current user ID from VK API.
+
+        Returns:
+            Current user ID
+        """
         return self.vk.account.getProfileInfo()["id"]
 
-    def get_username(self, user_id: str):
+    def get_username(self, user_id: str) -> str:
+        """
+        Get username by user ID.
+
+        Args:
+            user_id: VK user ID
+
+        Returns:
+            User's full name
+        """
         user = self.vk.users.get(user_id=user_id)[0]
         return f"{user['first_name']} {user['last_name']}"
 
-    def get_group_title(self, group_id: str):
+    def get_group_title(self, group_id: str) -> str:
+        """
+        Get group title by group ID.
+
+        Args:
+            group_id: VK group ID
+
+        Returns:
+            Group name with sanitized characters
+        """
         group_info = self.vk.groups.getById(group_id=group_id)
         group_name = (
             group_info[0]["name"]
@@ -208,7 +345,13 @@ class UserPhotoDownloader:
         self.vk = vk_instance
         self.parent_dir = parent_dir
 
-    def get_photos(self):
+    def get_photos(self) -> list[dict]:
+        """
+        Get all photos from user profile.
+
+        Returns:
+            List of photo dictionaries with metadata
+        """
         photos = []
 
         offset = 0
@@ -346,7 +489,9 @@ class UserPhotoDownloader:
         # Страница пользователя удалена
         if "deactivated" in user_info:
             logging.info("Эта страница удалена")
-            logging.info(f"Skipping download for deactivated user profile: {photos_path}")
+            logging.info(
+                f"Skipping download for deactivated user profile: {photos_path}"
+            )
         else:
             # Профиль закрыт
             if user_info["is_closed"] and not user_info["can_access_closed"]:
@@ -398,7 +543,7 @@ class UserPhotoDownloader:
 
 class UsersPhotoDownloader:
     def __init__(self, user_ids: list, vk_instance, parent_dir=DOWNLOADS_DIR):
-        self.user_ids = [id for id in user_ids]
+        self.user_ids = list(user_ids)
         self.vk = vk_instance
         self.parent_dir = parent_dir
 
@@ -470,7 +615,13 @@ class GroupPhotoDownloader:
         self.group_id = int(group_id)
         self.vk = vk_instance
 
-    async def get_photos(self, download_videos):
+    async def get_photos(self, download_videos: str) -> None:
+        """
+        Get photos from group wall.
+
+        Args:
+            download_videos: Whether to download videos ("1" for yes, "2" for no)
+        """
         offset = 0
         while True:
             posts = self.vk.wall.get(owner_id=-self.group_id, count=100, offset=offset)[
@@ -529,7 +680,7 @@ class GroupPhotoDownloader:
                     photo_id = post["attachments"][i]["photo"]["id"]
                     owner_id = post["attachments"][i]["photo"]["owner_id"]
                     photo_url = post["attachments"][i]["photo"]["sizes"][-1].get("url")
-                    if photo_url != None or photo_url != "":
+                    if photo_url is not None and photo_url != "":
                         self.photos.append(
                             {
                                 "type": file_type,
@@ -560,7 +711,13 @@ class GroupPhotoDownloader:
         except Exception as e:
             print(e)
 
-    async def main(self):
+    async def main(self, download_videos_flag: bool = False):
+        """
+        Download photos from group wall.
+
+        Args:
+            download_videos_flag: Whether to also download videos
+        """
         # Получаем информацию о группе
         group_info = self.vk.groups.getById(group_id=self.group_id)[0]
         group_name = (
@@ -588,7 +745,7 @@ class GroupPhotoDownloader:
                 }
             ]
         else:
-            download_vid = input("Скачать также видео? 1-да 2-нет\n> ")
+            download_vid = "1" if download_videos_flag else "2"
             if download_vid == "1":
                 logging.info(f"Получаем фотографии и видео группы '{group_name}'...")
                 await self.get_photos(download_vid)
@@ -723,7 +880,7 @@ class GroupsPhotoDownloader:
                     photo_id = post["attachments"][i]["photo"]["id"]
                     owner_id = post["attachments"][i]["photo"]["owner_id"]
                     photo_url = post["attachments"][i]["photo"]["sizes"][-1].get("url")
-                    if photo_url != None or photo_url != "":
+                    if photo_url is not None and photo_url != "":
                         self.photos.append(
                             {
                                 "type": file_type,
@@ -754,8 +911,13 @@ class GroupsPhotoDownloader:
         except Exception as e:
             print(e)
 
-    async def main(self):
-        # download_vid = input("Скачать также видео? 1-да 2-нет (сначала будут скачены видео)\n> ")
+    async def main(self, download_videos_flag: bool = False):
+        """
+        Download photos from multiple group walls.
+
+        Args:
+            download_videos_flag: Whether to also download videos
+        """
         groups_name = ", ".join(
             [utils.get_group_title(group_id) for group_id in self.group_ids]
         )
@@ -763,7 +925,7 @@ class GroupsPhotoDownloader:
         self.photos = []
         self.videos_list = []
 
-        download_vid = input("Скачать также видео? 1-да 2-нет\n> ")
+        download_vid = "1" if download_videos_flag else "2"
 
         for group_id in self.group_ids:
             group_info = self.vk.groups.getById(group_id=group_id)[0]
@@ -828,7 +990,7 @@ class GroupsPhotoDownloader:
                 else:
                     logging.info("Введено некорректное значение")
                     time.sleep(0.1)
-                    exit
+                    return
                 # logging.info(f"Получаем фотографии группы '{group_name}'...")
 
                 # Получаем фотографии со стены группы
@@ -1090,132 +1252,245 @@ class ChatUserPhotoDownloader:
         logging.info(f"Итого скачено: {len(photos) - dublicates_count} фото")
 
 
-def main():
-    utils.create_dir(DOWNLOADS_DIR)
+@click.group()
+@click.option(
+    "--output-dir",
+    "-o",
+    default="./downloads",
+    envvar="VK_OUTPUT_DIR",
+    help="Output directory for downloaded photos",
+)
+@click.option(
+    "--download-videos",
+    "-v",
+    is_flag=True,
+    envvar="VK_DOWNLOAD_VIDEOS",
+    help="Also download videos",
+)
+@click.option(
+    "--rate-limit",
+    "-r",
+    default=3,
+    type=int,
+    envvar="VK_RATE_LIMIT",
+    help="API requests per second",
+)
+@click.pass_context
+def main(
+    ctx: click.Context, output_dir: str, download_videos: bool, rate_limit: int
+) -> None:
+    """
+    VK.com Photo Scrobler - Download photos from VK profiles, groups, and chats.
 
-    print("1. Скачать все фотографии пользователя")
-    print("2. Скачать все фотографии нескольких пользователей")
-    print("3. Скачать все фотографии со стены группы")
-    print("4. Скачать все фотографии нескольких групп")
-    print("5. Скачать все фотографии участников беседы")
-    print("6. Скачать все вложения беседы")
-    print("7. Скачать все фотографии из чата пользователя")
-    print("8. Скачать все фотографии из альбомов группы")
+    This tool allows you to download photos from various VK sources including
+    user profiles, group walls, chat conversations, and chat member profiles.
 
-    while True:
-        time.sleep(0.1)
-        downloader_type = input("> ")
-        if downloader_type == "1":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                id = input("Введите id пользователя\n> ")
-                if utils.check_user_id(id):
-                    downloader = UserPhotoDownloader(user_id=id, vk_instance=vk)
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Пользователя с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "2":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                user_ids = input("Введите id пользователей через запятую\n> ")
-                if utils.check_user_ids(user_ids):
-                    downloader = UsersPhotoDownloader(
-                        user_ids=user_ids.split(","), vk_instance=vk
-                    )
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Пользователей с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "3":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                id = input("Введите id группы \n> ")
-                if utils.check_group_id(id):
-                    downloader = GroupPhotoDownloader(group_id=id, vk_instance=vk)
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Группы с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "4":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                group_ids = input("Введите id групп через запятую\n> ")
-                if utils.check_group_ids(group_ids):
-                    downloader = GroupsPhotoDownloader(
-                        group_ids=group_ids, vk_instance=vk
-                    )
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Групп с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "5":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                id = input("Введите id беседы\n> ")
-                if utils.check_chat_id(id):
-                    downloader = ChatMembersPhotoDownloader(chat_id=id, vk_instance=vk)
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Беседы с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "6":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                id = input("Введите id беседы\n> ")
-                if utils.check_chat_id(id):
-                    downloader = ChatPhotoDownloader(chat_id=id, vk_instance=vk)
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Беседы с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "7":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                id = input("Введите id чата пользователя\n> ")
-                if utils.check_user_id(id):
-                    downloader = ChatUserPhotoDownloader(chat_id=id, vk_instance=vk)
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Пользователя с таким id не существует")
-                    time.sleep(0.1)
-            break
-        elif downloader_type == "8":
-            vk = utils.auth_by_token()
-            time.sleep(0.1)
-            while True:
-                id = input("Введите id группы\n> ")
-                if utils.check_group_id(id):
-                    downloader = GroupAlbumsDownloader(group_id=id, vk_instance=vk)
-                    loop.run_until_complete(downloader.main())
-                    break
-                else:
-                    logging.info("Групп с таким id не существует")
-                    time.sleep(0.1)
-        else:
-            logging.info("Неправильная команда")
+    Authentication is done via VK access token stored in config.yaml or VK_TOKEN environment variable.
+    """
+    # Ensure context object is created
+    ctx.ensure_object(dict)
+
+    # Store options in context
+    ctx.obj["output_dir"] = CLIParameterValidator.validate_output_dir(output_dir)
+    ctx.obj["download_videos"] = download_videos
+    ctx.obj["rate_limit"] = rate_limit
+
+    # Create downloads directory
+    utils.create_dir(ctx.obj["output_dir"])
 
 
+@main.command()
+@click.option(
+    "--user-id",
+    "-u",
+    required=True,
+    envvar="VK_USER_ID",
+    help="VK user ID to download photos from",
+)
+@click.pass_context
+def user(ctx: click.Context, user_id: str) -> None:
+    """Download all photos from a single user profile."""
+    validated_user_id = CLIParameterValidator.validate_user_id(user_id)
+    if validated_user_id is None:
+        raise click.BadParameter("User ID is required")
+
+    if not utils.check_user_id(validated_user_id):
+        raise click.BadParameter(f"User with ID {validated_user_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = UserPhotoDownloader(
+        user_id=validated_user_id, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
+    )
+    loop.run_until_complete(downloader.main())
+
+
+@main.command()
+@click.option(
+    "--user-ids",
+    "-u",
+    required=True,
+    envvar="VK_USER_IDS",
+    help="Comma-separated list of VK user IDs",
+)
+@click.pass_context
+def users(ctx: click.Context, user_ids: str) -> None:
+    """Download all photos from multiple user profiles."""
+    user_id_list = [uid.strip() for uid in user_ids.split(",")]
+
+    # Validate each user ID
+    for user_id in user_id_list:
+        CLIParameterValidator.validate_user_id(user_id)
+        if not utils.check_user_id(user_id):
+            raise click.BadParameter(f"User with ID {user_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = UsersPhotoDownloader(
+        user_ids=user_id_list, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
+    )
+    loop.run_until_complete(downloader.main())
+
+
+@main.command()
+@click.option(
+    "--group-id",
+    "-g",
+    required=True,
+    envvar="VK_GROUP_ID",
+    help="VK group ID to download photos from",
+)
+@click.pass_context
+def group(ctx: click.Context, group_id: str) -> None:
+    """Download all photos from a single group wall."""
+    validated_group_id = CLIParameterValidator.validate_group_id(group_id)
+    if validated_group_id is None:
+        raise click.BadParameter("Group ID is required")
+
+    if not utils.check_group_id(validated_group_id):
+        raise click.BadParameter(f"Group with ID {validated_group_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = GroupPhotoDownloader(group_id=validated_group_id, vk_instance=vk)
+    loop.run_until_complete(downloader.main(ctx.obj["download_videos"]))
+
+
+@main.command()
+@click.option(
+    "--group-ids",
+    "-g",
+    required=True,
+    envvar="VK_GROUP_IDS",
+    help="Comma-separated list of VK group IDs",
+)
+@click.pass_context
+def groups(ctx: click.Context, group_ids: str) -> None:
+    """Download all photos from multiple group walls."""
+    group_id_list = [gid.strip() for gid in group_ids.split(",")]
+
+    # Validate each group ID
+    for group_id in group_id_list:
+        CLIParameterValidator.validate_group_id(group_id)
+        if not utils.check_group_id(group_id):
+            raise click.BadParameter(f"Group with ID {group_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = GroupsPhotoDownloader(
+        group_ids=",".join(group_id_list), vk_instance=vk
+    )
+    loop.run_until_complete(downloader.main(ctx.obj["download_videos"]))
+
+
+@main.command()
+@click.option(
+    "--chat-id",
+    "-c",
+    required=True,
+    envvar="VK_CHAT_ID",
+    help="VK chat ID to download member photos from",
+)
+@click.pass_context
+def chat_members(ctx: click.Context, chat_id: str) -> None:
+    """Download all photos from chat members."""
+    validated_chat_id = CLIParameterValidator.validate_chat_id(chat_id)
+    if validated_chat_id is None:
+        raise click.BadParameter("Chat ID is required")
+
+    if not utils.check_chat_id(validated_chat_id):
+        raise click.BadParameter(f"Chat with ID {validated_chat_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = ChatMembersPhotoDownloader(chat_id=validated_chat_id, vk_instance=vk)
+    loop.run_until_complete(downloader.main())
+
+
+@main.command()
+@click.option(
+    "--chat-id",
+    "-c",
+    required=True,
+    envvar="VK_CHAT_ID",
+    help="VK chat ID to download attachments from",
+)
+@click.pass_context
+def chat_attachments(ctx: click.Context, chat_id: str) -> None:
+    """Download all attachments from a chat conversation."""
+    validated_chat_id = CLIParameterValidator.validate_chat_id(chat_id)
+    if validated_chat_id is None:
+        raise click.BadParameter("Chat ID is required")
+
+    if not utils.check_chat_id(validated_chat_id):
+        raise click.BadParameter(f"Chat with ID {validated_chat_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = ChatPhotoDownloader(chat_id=validated_chat_id, vk_instance=vk)
+    loop.run_until_complete(downloader.main())
+
+
+@main.command()
+@click.option(
+    "--user-id",
+    "-u",
+    required=True,
+    envvar="VK_USER_ID",
+    help="VK user ID to download chat photos from",
+)
+@click.pass_context
+def user_chat(ctx: click.Context, user_id: str) -> None:
+    """Download all photos from a user's chat conversation."""
+    validated_user_id = CLIParameterValidator.validate_user_id(user_id)
+    if validated_user_id is None:
+        raise click.BadParameter("User ID is required")
+
+    if not utils.check_user_id(validated_user_id):
+        raise click.BadParameter(f"User with ID {validated_user_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = ChatUserPhotoDownloader(
+        chat_id=validated_user_id, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
+    )
+    loop.run_until_complete(downloader.main())
+
+
+@main.command()
+@click.option(
+    "--group-id",
+    "-g",
+    required=True,
+    envvar="VK_GROUP_ID",
+    help="VK group ID to download albums from",
+)
+@click.pass_context
+def group_albums(ctx: click.Context, group_id: str) -> None:
+    """Download all photos from group albums."""
+    validated_group_id = CLIParameterValidator.validate_group_id(group_id)
+    if validated_group_id is None:
+        raise click.BadParameter("Group ID is required")
+
+    if not utils.check_group_id(validated_group_id):
+        raise click.BadParameter(f"Group with ID {validated_group_id} does not exist")
+
+    vk = utils.auth_by_token()
+    downloader = GroupAlbumsDownloader(group_id=validated_group_id, vk_instance=vk)
+    loop.run_until_complete(downloader.main())
 
 
 if __name__ == "__main__":

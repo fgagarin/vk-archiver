@@ -52,22 +52,28 @@ class ConsistencyManager:
         it starts with an empty set.
         """
         if not self.lock_file.exists():
-            logging.info(f"Lock file does not exist, starting with empty download list: {self.lock_file}")
+            logging.info(
+                f"Lock file does not exist, starting with empty download list: {self.lock_file}"
+            )
             return
 
         try:
-            with open(self.lock_file, encoding='utf-8') as f:
+            with open(self.lock_file, encoding="utf-8") as f:
                 # Acquire shared lock for reading
                 fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                 try:
                     data = json.load(f)
-                    self.downloaded_files = set(data.get('downloaded_files', []))
-                    last_updated = data.get('last_updated', 'unknown')
-                    logging.info(f"Loaded {len(self.downloaded_files)} downloaded files from {last_updated}")
+                    self.downloaded_files = set(data.get("downloaded_files", []))
+                    last_updated = data.get("last_updated", "unknown")
+                    logging.info(
+                        f"Loaded {len(self.downloaded_files)} downloaded files from {last_updated}"
+                    )
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         except (json.JSONDecodeError, OSError) as e:
-            logging.warning(f"Could not load downloaded files list from {self.lock_file}: {e}")
+            logging.warning(
+                f"Could not load downloaded files list from {self.lock_file}: {e}"
+            )
             logging.info("Starting with empty download list")
             self.downloaded_files = set()
 
@@ -83,23 +89,27 @@ class ConsistencyManager:
             # Ensure the directory exists
             self.lock_file.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(self.lock_file, 'w', encoding='utf-8') as f:
+            with open(self.lock_file, "w", encoding="utf-8") as f:
                 # Acquire exclusive lock for writing
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 try:
                     data = {
-                        'downloaded_files': list(self.downloaded_files),
-                        'last_updated': datetime.now().isoformat(),
-                        'total_files': len(self.downloaded_files)
+                        "downloaded_files": list(self.downloaded_files),
+                        "last_updated": datetime.now().isoformat(),
+                        "total_files": len(self.downloaded_files),
                     }
                     json.dump(data, f, indent=2, ensure_ascii=False)
                     f.flush()  # Ensure data is written to disk
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
-            logging.debug(f"Saved {len(self.downloaded_files)} downloaded files to {self.lock_file}")
+            logging.debug(
+                f"Saved {len(self.downloaded_files)} downloaded files to {self.lock_file}"
+            )
         except OSError as e:
-            logging.error(f"Could not save downloaded files list to {self.lock_file}: {e}")
+            logging.error(
+                f"Could not save downloaded files list to {self.lock_file}: {e}"
+            )
             raise
 
     def is_already_downloaded(self, photo_id: str) -> bool:
@@ -191,7 +201,7 @@ class ConsistencyManager:
         """
         return self.lock_file
 
-    def __enter__(self) -> 'ConsistencyManager':
+    def __enter__(self) -> "ConsistencyManager":
         """
         Context manager entry point.
 
@@ -200,14 +210,18 @@ class ConsistencyManager:
         """
         return self
 
-    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any | None) -> None:
+    def __exit__(
+        self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any | None
+    ) -> None:
         """
         Context manager exit point.
 
         Ensures that any pending changes are saved when exiting the context.
         """
         if exc_type is not None:
-            logging.error(f"Exception occurred in ConsistencyManager context: {exc_val}")
+            logging.error(
+                f"Exception occurred in ConsistencyManager context: {exc_val}"
+            )
         # Ensure final save
         if self.downloaded_files:
             self._save_downloaded_files()

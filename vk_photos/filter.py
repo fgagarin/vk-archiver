@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # if running in py3, change the shebang, drop the next import for readability (it does no harm in py3)
-from collections import defaultdict
 import hashlib
 import logging
+from collections import defaultdict
 from pathlib import Path
 
 

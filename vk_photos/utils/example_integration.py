@@ -48,8 +48,8 @@ class ExamplePhotoDownloader:
         Returns:
             Unique photo identifier in format owner_id_photo_id
         """
-        owner_id = photo_data.get('owner_id', 0)
-        photo_id = photo_data.get('id', 0)
+        owner_id = photo_data.get("owner_id", 0)
+        photo_id = photo_data.get("id", 0)
         return f"{owner_id}_{photo_id}"
 
     def _should_download_photo(self, photo_data: dict) -> bool:
@@ -114,15 +114,23 @@ class ExamplePhotoDownloader:
                 if success:
                     self._mark_photo_downloaded(photo)
                     downloaded_count += 1
-                    logging.info(f"Successfully downloaded photo {self._generate_photo_id(photo)}")
+                    logging.info(
+                        f"Successfully downloaded photo {self._generate_photo_id(photo)}"
+                    )
                 else:
-                    logging.error(f"Failed to download photo {self._generate_photo_id(photo)}")
+                    logging.error(
+                        f"Failed to download photo {self._generate_photo_id(photo)}"
+                    )
 
             except Exception as e:
-                logging.error(f"Error downloading photo {self._generate_photo_id(photo)}: {e}")
+                logging.error(
+                    f"Error downloading photo {self._generate_photo_id(photo)}: {e}"
+                )
                 continue
 
-        logging.info(f"Downloaded {downloaded_count} new photos out of {len(photos)} total")
+        logging.info(
+            f"Downloaded {downloaded_count} new photos out of {len(photos)} total"
+        )
         return downloaded_count
 
     async def _download_single_photo(self, photo_data: dict) -> bool:
@@ -157,9 +165,9 @@ class ExamplePhotoDownloader:
             Dictionary with download statistics
         """
         return {
-            'total_downloaded': self.consistency_manager.get_downloaded_count(),
-            'lock_file': str(self.consistency_manager.get_lock_file_path()),
-            'output_dir': str(self.output_dir)
+            "total_downloaded": self.consistency_manager.get_downloaded_count(),
+            "lock_file": str(self.consistency_manager.get_lock_file_path()),
+            "output_dir": str(self.output_dir),
         }
 
 
@@ -173,12 +181,12 @@ async def example_usage() -> None:
 
     # Simulate photo data from VK API
     sample_photos = [
-        {'owner_id': 123456, 'id': 789, 'url': 'https://example.com/photo1.jpg'},
-        {'owner_id': 123456, 'id': 790, 'url': 'https://example.com/photo2.jpg'},
-        {'owner_id': 654321, 'id': 123, 'url': 'https://example.com/photo3.jpg'},
+        {"owner_id": 123456, "id": 789, "url": "https://example.com/photo1.jpg"},
+        {"owner_id": 123456, "id": 790, "url": "https://example.com/photo2.jpg"},
+        {"owner_id": 654321, "id": 123, "url": "https://example.com/photo3.jpg"},
     ]
 
-        # Download photos
+    # Download photos
     await downloader.download_photos(sample_photos)
 
     # Get statistics

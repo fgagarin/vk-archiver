@@ -32,6 +32,7 @@ requires-python = ">=3.10, <3.11"
 dependencies = [
     "aiofiles==24.1.0",
     "aiohttp >=3.10.11, <4.0",
+    "click>=8.0.0",
     "tqdm==4.67.1",
     "vk-api==11.10.0",
     "pytils==0.4.4",
@@ -95,6 +96,8 @@ asyncio_mode = "auto"
 [tool.ruff]
 target-version = "py310"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -110,7 +113,7 @@ ignore = [
     "C901",  # too complex
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**/*" = ["B011"]
 
