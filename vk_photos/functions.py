@@ -11,6 +11,7 @@ from pytrovich.enums import Case, Gender, NamePart
 from pytrovich.maker import PetrovichDeclinationMaker
 from tqdm.asyncio import tqdm
 
+from .utils.consistency import ConsistencyManager
 from .utils.exceptions import DownloadError, FileSystemError, NetworkError
 from .utils.logging_config import get_logger
 
@@ -81,17 +82,20 @@ async def download_photo(
         photo_path: Local path where to save the photo
     """
     try:
-        if not photo_path.exists():
-            async with session.get(photo_url) as response:
-                if response.status == 200:
-                    async with aiofiles.open(photo_path, "wb") as f:
-                        await f.write(await response.read())
-                else:
-                    raise NetworkError(
-                        f"Failed to download photo: HTTP {response.status}",
-                        url=photo_url,
-                        status_code=response.status,
-                    )
+        if photo_path.exists():
+            # File already present on disk; higher-level function will record consistency
+            logger.info(f"Skipping existing file: {photo_path.name}")
+            return
+        async with session.get(photo_url) as response:
+            if response.status == 200:
+                async with aiofiles.open(photo_path, "wb") as f:
+                    await f.write(await response.read())
+            else:
+                raise NetworkError(
+                    f"Failed to download photo: HTTP {response.status}",
+                    url=photo_url,
+                    status_code=response.status,
+                )
     except aiohttp.ClientError as e:
         raise NetworkError(
             f"Network error while downloading photo: {e}",
@@ -116,19 +120,62 @@ async def download_photo(
 
 async def download_photos(photos_path: Path, photos: list[dict[str, Any]]) -> None:
     """
-    Download multiple photos concurrently.
+    Download multiple photos concurrently with skip-on-exists behavior and
+    consistency tracking across multiple program instances.
 
     Args:
         photos_path: Directory path where to save photos
         photos: List of photo dictionaries containing 'owner_id', 'id', and 'url' keys
     """
-    async with aiohttp.ClientSession() as session:
-        futures = []
-        for _i, photo in enumerate(photos, start=1):
-            photo_title = "{}_{}.jpg".format(photo["owner_id"], photo["id"])
-            photo_path = photos_path.joinpath(photo_title)
-            futures.append(download_photo(session, photo["url"], photo_path))
+    # Initialize consistency manager for the target directory
+    lock_file = photos_path.joinpath(".downloads_lock.json")
+    consistency_manager = ConsistencyManager(lock_file)
 
+    async with aiohttp.ClientSession() as session:
+        futures: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
+
+        for _i, photo in enumerate(photos, start=1):
+            owner_id = photo.get("owner_id")
+            photo_id_only = photo.get("id")
+            photo_url = photo.get("url")
+
+            if owner_id is None or photo_id_only is None or photo_url is None:
+                logger.warning(
+                    "Skipping photo due to missing required fields: %s", photo
+                )
+                continue
+
+            combined_id = f"{owner_id}_{photo_id_only}"
+            photo_filename = f"{combined_id}.jpg"
+            photo_path = photos_path.joinpath(photo_filename)
+
+            # Skip if file already exists on disk
+            if photo_path.exists():
+                logger.info(f"Skipping existing file: {photo_filename}")
+                # Ensure consistency record is updated for existing files
+                consistency_manager.mark_as_downloaded(combined_id)
+                continue
+
+            # Skip if already recorded as downloaded by any instance
+            if consistency_manager.is_already_downloaded(combined_id):
+                logger.info(f"Skipping already downloaded (record): {combined_id}")
+                continue
+
+            async def _download_and_mark(
+                url: str = photo_url,
+                path: Path = photo_path,
+                pid: str = combined_id,
+            ) -> None:
+                try:
+                    await download_photo(session, url, path)
+                    # Mark as downloaded only after successful write
+                    consistency_manager.mark_as_downloaded(pid)
+                except Exception as e:  # noqa: BLE001
+                    logger.error(f"Failed to download {pid}: {e}")
+
+            futures.append(_download_and_mark())
+
+        # Execute downloads with progress tracking
         for future in tqdm(asyncio.as_completed(futures), total=len(futures)):
             await future
 
