@@ -1,18 +1,19 @@
 """User photo downloader classes for VK Photos application."""
 
-import logging
 import math
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pytils import numeral
 from vk_api.vk_api import VkApiMethod
 
 from ..functions import decline, download_photos
 from ..utils.exceptions import (
     InitializationError,
 )
+from ..utils.logging_config import get_logger
+
+logger = get_logger("downloaders.user")
 
 if TYPE_CHECKING:
     from ..utils import Utils
@@ -74,7 +75,7 @@ class UserPhotoDownloader:
 
         offset = 0
         while True:
-            # Собираем фото с сохраненок
+            # Collect photos from saved album
             photos_by_saved = self.vk.photos.get(
                 user_id=self.user_id,
                 count=100,
@@ -103,7 +104,7 @@ class UserPhotoDownloader:
 
         offset = 0
         while True:
-            # Собираем фото с профиля
+            # Collect photos from profile
             photos_by_profile = self.vk.photos.get(
                 user_id=self.user_id,
                 count=100,
@@ -132,7 +133,7 @@ class UserPhotoDownloader:
 
         offset = 0
         while True:
-            # Собираем фото со стены
+            # Collect photos from wall
             photos_by_wall = self.vk.photos.get(
                 user_id=self.user_id,
                 count=100,
@@ -222,16 +223,16 @@ class UserPhotoDownloader:
         photos_path = self.parent_dir.joinpath(username)
         utils.create_dir(photos_path)
 
-        # Страница пользователя удалена
+        # User page is deleted
         if "deactivated" in user_info:
-            logging.info("Эта страница удалена")
-            logging.info(
+            logger.info("This page is deleted")
+            logger.info(
                 f"Skipping download for deactivated user profile: {photos_path}"
             )
         else:
-            # Профиль закрыт
+            # Profile is closed
             if user_info["is_closed"] and not user_info["can_access_closed"]:
-                logging.info(f"Профиль {decline_username} закрыт :(")
+                logger.info(f"Profile {decline_username} is closed :(")
                 photos = [
                     {
                         "id": self.user_id,
@@ -241,39 +242,27 @@ class UserPhotoDownloader:
                     }
                 ]
             else:
-                logging.info(f"Получаем фотографии {decline_username}...")
+                logger.info(f"Getting photos from {decline_username}...")
 
-                # Получаем фотографии пользователя
+                # Get user photos
                 photos = self.get_photos()
 
-            # Сортируем фотографии пользователя по дате
+            # Sort user photos by date
             photos.sort(key=lambda k: k["date"], reverse=True)
 
-            logging.info(
-                "{} {} {}".format(
-                    numeral.choose_plural(len(photos), "Будет, Будут, Будут"),
-                    numeral.choose_plural(len(photos), "скачена, скачены, скачены"),
-                    numeral.get_plural(
-                        len(photos), "фотография, фотографии, фотографий"
-                    ),
-                )
+            logger.info(
+                f"Will download {len(photos)} photo{'s' if len(photos) != 1 else ''}"
             )
 
             time_start = time.time()
 
-            # Скачиваем фотографии пользователя
+            # Download user photos
             await download_photos(photos_path, photos)
 
             time_finish = time.time()
             download_time = math.ceil(time_finish - time_start)
-            logging.info(
-                "{} {} за {}".format(
-                    numeral.choose_plural(len(photos), "Скачена, Скачены, Скачены"),
-                    numeral.get_plural(
-                        len(photos), "фотография, фотографии, фотографий"
-                    ),
-                    numeral.get_plural(download_time, "секунду, секунды, секунд"),
-                )
+            logger.info(
+                f"Downloaded {len(photos)} photo{'s' if len(photos) != 1 else ''} in {download_time} second{'s' if download_time != 1 else ''}"
             )
 
 

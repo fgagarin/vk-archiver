@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # if running in py3, change the shebang, drop the next import for readability (it does no harm in py3)
 import hashlib
-import logging
 from collections import defaultdict
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, BinaryIO
+
+from .utils.logging_config import get_logger
+
+logger = get_logger("filter")
 
 
 def chunk_reader(
@@ -110,6 +113,6 @@ def check_for_duplicates(path: Path) -> int:
                 hashes_full[full_hash] = filename
 
     for file in duplicates:
-        logging.info(f"Skipping duplicate file instead of deleting: {file}")
+        logger.info(f"Skipping duplicate file instead of deleting: {file}")
 
     return len(duplicates)

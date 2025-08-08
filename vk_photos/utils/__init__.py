@@ -31,4 +31,5 @@ __all__ = [
     "PermissionError",
     "ResourceNotFoundError",
     "InitializationError",
+    "logging_config",
 ]

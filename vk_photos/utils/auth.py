@@ -1,12 +1,14 @@
 """Authentication utilities for VK API."""
 
-import logging
 from typing import TYPE_CHECKING
 
 import vk_api
 from vk_api.vk_api import VkApiMethod
 
 from .exceptions import AuthenticationError, InitializationError
+from .logging_config import get_logger
+
+logger = get_logger("utils.auth")
 
 if TYPE_CHECKING:
     from .config import ConfigManager
@@ -65,8 +67,8 @@ class VKAuthenticator:
         config = self._config_manager.get_config()
 
         if not config.get("token"):
-            logging.error("VK access token is required")
-            logging.info("Get token from: https://vkhost.github.io/")
+            logger.error("VK access token is required")
+            logger.info("Get token from: https://vkhost.github.io/")
             raise AuthenticationError(
                 "VK access token is required",
                 details="Token not found in configuration",
@@ -75,11 +77,11 @@ class VKAuthenticator:
         try:
             vk_session = vk_api.VkApi(token=config["token"])
             self._vk = vk_session.get_api()
-            logging.info("Successfully authenticated with token.")
+            logger.info("Successfully authenticated with token.")
             return self._vk
         except Exception as e:
-            logging.error(f"Authentication failed: {e}")
-            logging.info("Get token from: https://vkhost.github.io/")
+            logger.error(f"Authentication failed: {e}")
+            logger.info("Get token from: https://vkhost.github.io/")
             raise AuthenticationError(
                 "Invalid VK access token",
                 details=f"Authentication failed: {e}",

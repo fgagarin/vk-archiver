@@ -6,10 +6,12 @@ with downloader classes to prevent duplicate downloads across multiple
 program instances.
 """
 
-import logging
 from pathlib import Path
 
 from vk_photos.utils.consistency import ConsistencyManager
+from vk_photos.utils.logging_config import get_logger
+
+logger = get_logger("utils.example_integration")
 
 
 class ExamplePhotoDownloader:
@@ -36,7 +38,7 @@ class ExamplePhotoDownloader:
             lock_file = output_dir / ".downloads_lock.json"
 
         self.consistency_manager = ConsistencyManager(lock_file)
-        logging.info(f"Initialized downloader with consistency manager: {lock_file}")
+        logger.info(f"Initialized downloader with consistency manager: {lock_file}")
 
     def _generate_photo_id(self, photo_data: dict) -> str:
         """
@@ -66,7 +68,7 @@ class ExamplePhotoDownloader:
 
         # Check if already downloaded by any instance
         if self.consistency_manager.is_already_downloaded(photo_id):
-            logging.info(f"Photo {photo_id} already downloaded, skipping")
+            logger.info(f"Photo {photo_id} already downloaded, skipping")
             return False
 
         # Check if file already exists on disk
@@ -74,7 +76,7 @@ class ExamplePhotoDownloader:
         filepath = self.output_dir / filename
 
         if filepath.exists():
-            logging.info(f"File {filepath} already exists, marking as downloaded")
+            logger.info(f"File {filepath} already exists, marking as downloaded")
             self.consistency_manager.mark_as_downloaded(photo_id)
             return False
 
@@ -89,7 +91,7 @@ class ExamplePhotoDownloader:
         """
         photo_id = self._generate_photo_id(photo_data)
         self.consistency_manager.mark_as_downloaded(photo_id)
-        logging.debug(f"Marked photo {photo_id} as downloaded")
+        logger.debug(f"Marked photo {photo_id} as downloaded")
 
     async def download_photos(self, photos: list[dict]) -> int:
         """
@@ -114,26 +116,26 @@ class ExamplePhotoDownloader:
                 if success:
                     self._mark_photo_downloaded(photo)
                     downloaded_count += 1
-                    logging.info(
+                    logger.info(
                         f"Successfully downloaded photo {self._generate_photo_id(photo)}"
                     )
                 else:
-                    logging.error(
+                    logger.error(
                         f"Failed to download photo {self._generate_photo_id(photo)}"
                     )
 
             except OSError as e:
-                logging.error(
+                logger.error(
                     f"File system error downloading photo {self._generate_photo_id(photo)}: {e}"
                 )
                 continue
             except Exception as e:
-                logging.error(
+                logger.error(
                     f"Unexpected error downloading photo {self._generate_photo_id(photo)}: {e}"
                 )
                 continue
 
-        logging.info(
+        logger.info(
             f"Downloaded {downloaded_count} new photos out of {len(photos)} total"
         )
         return downloaded_count
@@ -159,10 +161,10 @@ class ExamplePhotoDownloader:
             filepath.touch()
             return True
         except OSError as e:
-            logging.error(f"File system error creating file {filepath}: {e}")
+            logger.error(f"File system error creating file {filepath}: {e}")
             return False
         except Exception as e:
-            logging.error(f"Unexpected error creating file {filepath}: {e}")
+            logger.error(f"Unexpected error creating file {filepath}: {e}")
             return False
 
     def get_download_stats(self) -> dict:
@@ -199,18 +201,15 @@ async def example_usage() -> None:
 
     # Get statistics
     stats = downloader.get_download_stats()
-    logging.info(f"Download statistics: {stats}")
+    logger.info(f"Download statistics: {stats}")
 
     # Running the same download again should skip all files
     downloaded_count_2 = await downloader.download_photos(sample_photos)
-    logging.info(f"Second run downloaded {downloaded_count_2} photos (should be 0)")
+    logger.info(f"Second run downloaded {downloaded_count_2} photos (should be 0)")
 
 
 if __name__ == "__main__":
     import asyncio
-
-    # Set up logging
-    logging.basicConfig(level=logging.INFO)
 
     # Run example
     asyncio.run(example_usage())

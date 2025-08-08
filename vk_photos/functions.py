@@ -12,7 +12,9 @@ from pytrovich.maker import PetrovichDeclinationMaker
 from tqdm.asyncio import tqdm
 
 from .utils.exceptions import DownloadError, FileSystemError, NetworkError
+from .utils.logging_config import get_logger
 
+logger = get_logger("functions")
 maker = PetrovichDeclinationMaker()
 
 
@@ -148,7 +150,7 @@ async def download_video(video_path: Path, video_link: str) -> None:
     ydl_opts = {"outtmpl": f"{video_path}", "quiet": True, "retries": 10}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download(video_link)
-        print(f"Видео загружено: {video_link}")
+        logger.info(f"Video downloaded: {video_link}")
 
 
 async def download_videos(videos_path: Path, videos: list[dict[str, Any]]) -> None:
@@ -174,6 +176,6 @@ async def download_videos(videos_path: Path, videos: list[dict[str, Any]]) -> No
         )  # , video["title"])
         video_path = videos_path.joinpath(filename)
         futures.append(download_video(video_path, video["player"]))
-    print(len(futures))
+    logger.info(f"Starting download of {len(futures)} videos")
     for future in tqdm(asyncio.as_completed(futures), total=len(futures)):
         await future

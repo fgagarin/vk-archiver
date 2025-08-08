@@ -1,10 +1,8 @@
-import logging
 import math
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pytils import numeral
 from vk_api.vk_api import VkApiMethod
 
 from ..filter import check_for_duplicates
@@ -12,7 +10,10 @@ from ..functions import download_photos
 from ..utils.exceptions import (
     InitializationError,
 )
+from ..utils.logging_config import get_logger
 from .user import UsersPhotoDownloader
+
+logger = get_logger("downloaders.chat")
 
 if TYPE_CHECKING:
     from ..utils import Utils
@@ -74,14 +75,14 @@ class ChatMembersPhotoDownloader:
         chat_title = utils.get_chat_title(str(self.chat_id))
         chat_path = DOWNLOADS_DIR.joinpath(chat_title)
 
-        # Создаём папку с фотографиями участников беседы, если её не существует
+        # Create folder for chat members' photos if it doesn't exist
         utils.create_dir(chat_path)
 
         members = self.vk.messages.getChat(chat_id=self.chat_id)["users"]
 
         if members == []:
-            logging.info("Вы вышли из этой беседы")
-            logging.info(f"Skipping download for empty chat: {chat_path}")
+            logger.info("You left this chat")
+            logger.info(f"Skipping download for empty chat: {chat_path}")
         else:
             members_ids = []
 
@@ -170,40 +171,34 @@ class ChatPhotoDownloader:
         chat_title = utils.get_chat_title(str(self.chat_id))
         photos_path = DOWNLOADS_DIR.joinpath(chat_title)
         if not photos_path.exists():
-            logging.info(f"Создаём папку с фотографиями беседы '{chat_title}'")
+            logger.info(f"Creating folder for chat photos '{chat_title}'")
             photos_path.mkdir()
 
         photos = self.get_attachments()
 
-        logging.info(
-            "{} {} {}".format(
-                numeral.choose_plural(len(photos), "Будет, Будут, Будут"),
-                numeral.choose_plural(len(photos), "скачена, скачены, скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-            )
+        logger.info(
+            f"Will download {len(photos)} photo{'s' if len(photos) != 1 else ''}"
         )
 
         time_start = time.time()
 
-        # Скачиваем вложения беседы
+        # Download chat attachments
         await download_photos(photos_path, photos)
 
         time_finish = time.time()
         download_time = math.ceil(time_finish - time_start)
 
-        logging.info(
-            "{} {} за {}".format(
-                numeral.choose_plural(len(photos), "Скачена, Скачены, Скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-                numeral.get_plural(download_time, "секунду, секунды, секунд"),
-            )
+        logger.info(
+            f"Downloaded {len(photos)} photo{'s' if len(photos) != 1 else ''} in {download_time} second{'s' if download_time != 1 else ''}"
         )
 
-        logging.info("Проверка на дубликаты")
+        logger.info("Checking for duplicates")
         dublicates_count = check_for_duplicates(photos_path)
-        logging.info(f"Дубликатов удалено: {dublicates_count}")
+        logger.info(f"Duplicates removed: {dublicates_count}")
 
-        logging.info(f"Итого скачено: {len(photos) - dublicates_count} фото")
+        logger.info(
+            f"Total downloaded: {len(photos) - dublicates_count} photo{'s' if len(photos) - dublicates_count != 1 else ''}"
+        )
 
 
 class ChatUserPhotoDownloader:
@@ -283,17 +278,13 @@ class ChatUserPhotoDownloader:
 
         username = utils.get_username(self.chat_id)
 
-        photos_path = self.parent_dir.joinpath(f"Переписка {username}")
+        photos_path = self.parent_dir.joinpath(f"Chat {username}")
         utils.create_dir(photos_path)
 
         photos = self.get_attachments()
 
-        logging.info(
-            "{} {} {}".format(
-                numeral.choose_plural(len(photos), "Будет, Будут, Будут"),
-                numeral.choose_plural(len(photos), "скачена, скачены, скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-            )
+        logger.info(
+            f"Will download {len(photos)} photo{'s' if len(photos) != 1 else ''}"
         )
 
         time_start = time.time()
@@ -303,16 +294,14 @@ class ChatUserPhotoDownloader:
         time_finish = time.time()
         download_time = math.ceil(time_finish - time_start)
 
-        logging.info(
-            "{} {} за {}".format(
-                numeral.choose_plural(len(photos), "Скачена, Скачены, Скачены"),
-                numeral.get_plural(len(photos), "фотография, фотографии, фотографий"),
-                numeral.get_plural(download_time, "секунду, секунды, секунд"),
-            )
+        logger.info(
+            f"Downloaded {len(photos)} photo{'s' if len(photos) != 1 else ''} in {download_time} second{'s' if download_time != 1 else ''}"
         )
 
-        logging.info("Проверка на дубликаты")
+        logger.info("Checking for duplicates")
         dublicates_count = check_for_duplicates(photos_path)
-        logging.info(f"Дубликатов удалено: {dublicates_count}")
+        logger.info(f"Duplicates removed: {dublicates_count}")
 
-        logging.info(f"Итого скачено: {len(photos) - dublicates_count} фото")
+        logger.info(
+            f"Total downloaded: {len(photos) - dublicates_count} photo{'s' if len(photos) - dublicates_count != 1 else ''}"
+        )

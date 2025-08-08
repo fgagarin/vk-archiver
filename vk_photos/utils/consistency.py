@@ -8,10 +8,13 @@ across multiple program instances.
 
 import fcntl
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from .logging_config import get_logger
+
+logger = get_logger("utils.consistency")
 
 
 class ConsistencyManager:
@@ -41,7 +44,7 @@ class ConsistencyManager:
         self.downloaded_files: set[str] = set()
         self.lock_handle: Any | None = None
         self._load_downloaded_files()
-        logging.info(f"ConsistencyManager initialized with lock file: {lock_file}")
+        logger.info(f"ConsistencyManager initialized with lock file: {lock_file}")
 
     def _load_downloaded_files(self) -> None:
         """
@@ -52,7 +55,7 @@ class ConsistencyManager:
         it starts with an empty set.
         """
         if not self.lock_file.exists():
-            logging.info(
+            logger.info(
                 f"Lock file does not exist, starting with empty download list: {self.lock_file}"
             )
             return
@@ -65,16 +68,16 @@ class ConsistencyManager:
                     data = json.load(f)
                     self.downloaded_files = set(data.get("downloaded_files", []))
                     last_updated = data.get("last_updated", "unknown")
-                    logging.info(
+                    logger.info(
                         f"Loaded {len(self.downloaded_files)} downloaded files from {last_updated}"
                     )
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         except (json.JSONDecodeError, OSError) as e:
-            logging.warning(
+            logger.warning(
                 f"Could not load downloaded files list from {self.lock_file}: {e}"
             )
-            logging.info("Starting with empty download list")
+            logger.info("Starting with empty download list")
             self.downloaded_files = set()
 
     def _save_downloaded_files(self) -> None:
@@ -103,11 +106,11 @@ class ConsistencyManager:
                 finally:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
-            logging.debug(
+            logger.debug(
                 f"Saved {len(self.downloaded_files)} downloaded files to {self.lock_file}"
             )
         except OSError as e:
-            logging.error(
+            logger.error(
                 f"Could not save downloaded files list to {self.lock_file}: {e}"
             )
             raise
@@ -124,7 +127,7 @@ class ConsistencyManager:
         """
         is_downloaded = photo_id in self.downloaded_files
         if is_downloaded:
-            logging.debug(f"Photo {photo_id} already downloaded, skipping")
+            logger.debug(f"Photo {photo_id} already downloaded, skipping")
         return is_downloaded
 
     def mark_as_downloaded(self, photo_id: str) -> None:
@@ -140,9 +143,9 @@ class ConsistencyManager:
         if photo_id not in self.downloaded_files:
             self.downloaded_files.add(photo_id)
             self._save_downloaded_files()
-            logging.debug(f"Marked photo {photo_id} as downloaded")
+            logger.debug(f"Marked photo {photo_id} as downloaded")
         else:
-            logging.debug(f"Photo {photo_id} already marked as downloaded")
+            logger.debug(f"Photo {photo_id} already marked as downloaded")
 
     def get_downloaded_count(self) -> int:
         """
@@ -171,7 +174,7 @@ class ConsistencyManager:
         """
         self.downloaded_files.clear()
         self._save_downloaded_files()
-        logging.info("Cleared all downloaded files from consistency record")
+        logger.info("Cleared all downloaded files from consistency record")
 
     def remove_downloaded_file(self, photo_id: str) -> bool:
         """
@@ -186,10 +189,10 @@ class ConsistencyManager:
         if photo_id in self.downloaded_files:
             self.downloaded_files.remove(photo_id)
             self._save_downloaded_files()
-            logging.info(f"Removed photo {photo_id} from downloaded files record")
+            logger.info(f"Removed photo {photo_id} from downloaded files record")
             return True
         else:
-            logging.debug(f"Photo {photo_id} not found in downloaded files record")
+            logger.debug(f"Photo {photo_id} not found in downloaded files record")
             return False
 
     def get_lock_file_path(self) -> Path:
@@ -219,9 +222,7 @@ class ConsistencyManager:
         Ensures that any pending changes are saved when exiting the context.
         """
         if exc_type is not None:
-            logging.error(
-                f"Exception occurred in ConsistencyManager context: {exc_val}"
-            )
+            logger.error(f"Exception occurred in ConsistencyManager context: {exc_val}")
         # Ensure final save
         if self.downloaded_files:
             self._save_downloaded_files()

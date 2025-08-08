@@ -39,7 +39,7 @@ class VKValidator:
             accounts, or network issues.
         """
         try:
-            # Проверяем, существует ли пользователь с таким id
+            # Check if user with this id exists
             user = self._authenticator.vk.users.get(user_ids=int(id))
             return len(user) != 0
         except (ValueError, TypeError):
@@ -138,7 +138,7 @@ class VKValidator:
             groups, or network issues. Prints error details for debugging.
         """
         try:
-            # Проверяем, существует ли группа с таким id
+            # Check if group with this id exists
             group = self._authenticator.vk.groups.getById(group_id=int(id))
             if len(group) != 0:
                 return True
@@ -240,7 +240,7 @@ class VKValidator:
             by adding 2000000000.
         """
         try:
-            # Проверяем, существует ли беседа с таким id
+            # Check if chat with this id exists
             conversation = self._authenticator.vk.messages.getConversationsById(
                 peer_ids=2000000000 + int(id)
             )

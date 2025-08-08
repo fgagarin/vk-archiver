@@ -23,19 +23,15 @@ from .utils.exceptions import (
     ResourceNotFoundError,
     ValidationError,
 )
+from .utils.logging_config import setup_logging
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 CONFIG_PATH = BASE_DIR.joinpath("config.yaml")
 VK_CONFIG_PATH = BASE_DIR.joinpath("vk_config.v2.json")
 
-
-logging.basicConfig(
-    format="%(asctime)s - %(message)s", datefmt="%d-%b-%y %H:%M:%S", level=logging.INFO
-)
-
-logger = logging.getLogger("vk_api")
-logger.disabled = True
+# Set up centralized logging
+logger = setup_logging(level=logging.INFO)
 
 loop = asyncio.get_event_loop()
 
