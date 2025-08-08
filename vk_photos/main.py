@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
@@ -24,6 +25,9 @@ from .utils.exceptions import (
     ValidationError,
 )
 from .utils.logging_config import setup_logging
+
+if TYPE_CHECKING:
+    from .utils import Utils
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
@@ -147,11 +151,8 @@ class CLIParameterValidator:
             raise click.BadParameter(f"Cannot create output directory: {e}") from e
 
 
-utils = Utils(CONFIG_PATH)
-
-# Initialize utils instance in downloaders
-set_utils_instance(utils)
-set_chat_utils_instance(utils)
+# Global utils instance - will be initialized with rate limit in main function
+utils = None  # type: ignore
 
 
 @click.group()
@@ -189,6 +190,8 @@ def main(
 
     Authentication is done via VK access token stored in config.yaml or VK_TOKEN environment variable.
     """
+    global utils
+
     # Ensure context object is created
     ctx.ensure_object(dict)
 
@@ -196,6 +199,13 @@ def main(
     ctx.obj["output_dir"] = CLIParameterValidator.validate_output_dir(output_dir)
     ctx.obj["download_videos"] = download_videos
     ctx.obj["rate_limit"] = rate_limit
+
+    # Initialize utils instance with rate limit
+    utils = Utils(CONFIG_PATH, rate_limit)
+
+    # Initialize utils instance in downloaders
+    set_utils_instance(utils)
+    set_chat_utils_instance(utils)
 
     # Create downloads directory
     utils.create_dir(ctx.obj["output_dir"])
@@ -225,12 +235,22 @@ def user(ctx: click.Context, user_id: str) -> None:
     Raises:
         click.BadParameter: If user ID is invalid or user doesn't exist
     """
+    if utils is None:
+        raise click.BadParameter(
+            "Utils not initialized. Please run the main command first."
+        )
+
+    # Type assertion after None check
+    utils_instance = utils
+
     validated_user_id = CLIParameterValidator.validate_user_id(user_id)
     if validated_user_id is None:
         raise click.BadParameter("User ID is required")
 
     try:
-        utils.validator.validate_user_id(validated_user_id)
+        loop.run_until_complete(
+            utils_instance.validator.validate_user_id(validated_user_id)
+        )
     except ValidationError as e:
         raise click.BadParameter(f"Invalid user ID: {e}") from e
     except ResourceNotFoundError as e:
@@ -240,7 +260,7 @@ def user(ctx: click.Context, user_id: str) -> None:
     except APIError as e:
         raise click.BadParameter(f"Failed to validate user: {e}") from e
 
-    vk = utils.auth_by_token()
+    vk = utils_instance.auth_by_token()
     downloader = UserPhotoDownloader(
         user_id=validated_user_id, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
     )

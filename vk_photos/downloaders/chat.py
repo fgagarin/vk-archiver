@@ -3,14 +3,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from vk_api.vk_api import VkApiMethod
-
 from ..filter import check_for_duplicates
 from ..functions import download_photos
-from ..utils.exceptions import (
-    InitializationError,
-)
+from ..utils.exceptions import InitializationError
 from ..utils.logging_config import get_logger
+from ..utils.rate_limiter import RateLimitedVKAPI
 from .user import UsersPhotoDownloader
 
 logger = get_logger("downloaders.chat")
@@ -39,7 +36,7 @@ def set_utils_instance(utils_instance: "Utils") -> None:
 class ChatMembersPhotoDownloader:
     """Download photos from chat members."""
 
-    def __init__(self, chat_id: str, vk_instance: VkApiMethod) -> None:
+    def __init__(self, chat_id: str, vk_instance: RateLimitedVKAPI) -> None:
         """
         Initialize ChatMembersPhotoDownloader.
 
@@ -72,13 +69,14 @@ class ChatMembersPhotoDownloader:
                 "Utils instance not initialized", component="ChatMembersPhotoDownloader"
             )
 
-        chat_title = utils.get_chat_title(str(self.chat_id))
+        chat_title = await utils.get_chat_title(str(self.chat_id))
         chat_path = DOWNLOADS_DIR.joinpath(chat_title)
 
         # Create folder for chat members' photos if it doesn't exist
         utils.create_dir(chat_path)
 
-        members = self.vk.messages.getChat(chat_id=self.chat_id)["users"]
+        members_resp = await self.vk.call("messages.getChat", chat_id=self.chat_id)
+        members = members_resp["users"]
 
         if members == []:
             logger.info("You left this chat")
@@ -90,7 +88,8 @@ class ChatMembersPhotoDownloader:
                 if member_id > 0:
                     members_ids.append(member_id)
 
-            members_ids.remove(utils.get_user_id())
+            current_uid = await utils.get_user_id()
+            members_ids.remove(current_uid)
 
             await UsersPhotoDownloader(
                 user_ids=members_ids, vk_instance=self.vk, parent_dir=chat_path
@@ -100,7 +99,7 @@ class ChatMembersPhotoDownloader:
 class ChatPhotoDownloader:
     """Download photos from chat attachments."""
 
-    def __init__(self, chat_id: str, vk_instance: VkApiMethod) -> None:
+    def __init__(self, chat_id: str, vk_instance: RateLimitedVKAPI) -> None:
         """
         Initialize ChatPhotoDownloader.
 
@@ -111,7 +110,7 @@ class ChatPhotoDownloader:
         self.chat_id = int(chat_id)
         self.vk = vk_instance
 
-    def get_attachments(self) -> list[dict[str, Any]]:
+    async def get_attachments(self) -> list[dict[str, Any]]:
         """
         Get photo attachments from chat history.
 
@@ -128,9 +127,12 @@ class ChatPhotoDownloader:
             Uses VK API's getHistoryAttachments method to efficiently retrieve
             attachments from the entire chat history.
         """
-        raw_data = self.vk.messages.getHistoryAttachments(
-            peer_id=2000000000 + self.chat_id, media_type="photo"
-        )["items"]
+        resp = await self.vk.call(
+            "messages.getHistoryAttachments",
+            peer_id=2000000000 + self.chat_id,
+            media_type="photo",
+        )
+        raw_data = resp["items"]
 
         photos = []
 
@@ -168,13 +170,13 @@ class ChatPhotoDownloader:
                 "Utils instance not initialized", component="ChatPhotoDownloader"
             )
 
-        chat_title = utils.get_chat_title(str(self.chat_id))
+        chat_title = await utils.get_chat_title(str(self.chat_id))
         photos_path = DOWNLOADS_DIR.joinpath(chat_title)
         if not photos_path.exists():
             logger.info(f"Creating folder for chat photos '{chat_title}'")
             photos_path.mkdir()
 
-        photos = self.get_attachments()
+        photos = await self.get_attachments()
 
         logger.info(
             f"Will download {len(photos)} photo{'s' if len(photos) != 1 else ''}"
@@ -205,7 +207,10 @@ class ChatUserPhotoDownloader:
     """Download photos from user chat conversation."""
 
     def __init__(
-        self, chat_id: str, vk_instance: VkApiMethod, parent_dir: Path = DOWNLOADS_DIR
+        self,
+        chat_id: str,
+        vk_instance: RateLimitedVKAPI,
+        parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """
         Initialize ChatUserPhotoDownloader.
@@ -219,7 +224,7 @@ class ChatUserPhotoDownloader:
         self.parent_dir = parent_dir
         self.vk = vk_instance
 
-    def get_attachments(self) -> list[dict[str, Any]]:
+    async def get_attachments(self) -> list[dict[str, Any]]:
         """
         Get photo attachments from user chat history.
 
@@ -235,9 +240,10 @@ class ChatUserPhotoDownloader:
             Uses VK API's getHistoryAttachments method to efficiently retrieve
             attachments from the entire private chat history.
         """
-        raw_data = self.vk.messages.getHistoryAttachments(
-            peer_id=self.chat_id, media_type="photo"
-        )["items"]
+        resp = await self.vk.call(
+            "messages.getHistoryAttachments", peer_id=self.chat_id, media_type="photo"
+        )
+        raw_data = resp["items"]
 
         photos = []
 
@@ -276,12 +282,12 @@ class ChatUserPhotoDownloader:
                 "Utils instance not initialized", component="ChatUserPhotoDownloader"
             )
 
-        username = utils.get_username(self.chat_id)
+        username = await utils.get_username(self.chat_id)
 
         photos_path = self.parent_dir.joinpath(f"Chat {username}")
         utils.create_dir(photos_path)
 
-        photos = self.get_attachments()
+        photos = await self.get_attachments()
 
         logger.info(
             f"Will download {len(photos)} photo{'s' if len(photos) != 1 else ''}"

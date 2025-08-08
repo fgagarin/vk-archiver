@@ -20,7 +20,7 @@ class VKValidator:
         """
         self._authenticator = authenticator
 
-    def check_user_id(self, id: str) -> bool:
+    async def check_user_id(self, id: str) -> bool:
         """
         Check if user with given ID exists.
 
@@ -40,7 +40,7 @@ class VKValidator:
         """
         try:
             # Check if user with this id exists
-            user = self._authenticator.vk.users.get(user_ids=int(id))
+            user = await self._authenticator.vk.call("users.get", user_ids=int(id))
             return len(user) != 0
         except (ValueError, TypeError):
             # Invalid ID format
@@ -49,7 +49,7 @@ class VKValidator:
             # Any other API or network error
             return False
 
-    def validate_user_id(self, id: str) -> None:
+    async def validate_user_id(self, id: str) -> None:
         """
         Validate that user with given ID exists.
 
@@ -75,7 +75,7 @@ class VKValidator:
             ) from e
 
         try:
-            user = self._authenticator.vk.users.get(user_ids=user_id)
+            user = await self._authenticator.vk.call("users.get", user_ids=user_id)
             if len(user) == 0:
                 raise ResourceNotFoundError(
                     f"User with ID {id} does not exist",
@@ -92,7 +92,7 @@ class VKValidator:
                 api_method="users.get",
             ) from e
 
-    def check_user_ids(self, ids_list: str) -> bool:
+    async def check_user_ids(self, ids_list: str) -> bool:
         """
         Check if all users with given IDs exist.
 
@@ -112,14 +112,14 @@ class VKValidator:
         """
         try:
             for user_id in ids_list.split(","):
-                if not self.check_user_id(user_id):
+                if not await self.check_user_id(user_id):
                     return False
             return True
         except Exception:
             # Any parsing or iteration error
             return False
 
-    def check_group_id(self, id: str) -> bool:
+    async def check_group_id(self, id: str) -> bool:
         """
         Check if group with given ID exists.
 
@@ -139,7 +139,9 @@ class VKValidator:
         """
         try:
             # Check if group with this id exists
-            group = self._authenticator.vk.groups.getById(group_id=int(id))
+            group = await self._authenticator.vk.call(
+                "groups.getById", group_id=int(id)
+            )
             if len(group) != 0:
                 return True
             return False
@@ -150,7 +152,7 @@ class VKValidator:
             # Any other API or network error
             return False
 
-    def validate_group_id(self, id: str) -> None:
+    async def validate_group_id(self, id: str) -> None:
         """
         Validate that group with given ID exists.
 
@@ -176,7 +178,9 @@ class VKValidator:
             ) from e
 
         try:
-            group = self._authenticator.vk.groups.getById(group_id=group_id)
+            group = await self._authenticator.vk.call(
+                "groups.getById", group_id=group_id
+            )
             if len(group) == 0:
                 raise ResourceNotFoundError(
                     f"Group with ID {id} does not exist",
@@ -193,7 +197,7 @@ class VKValidator:
                 api_method="groups.getById",
             ) from e
 
-    def check_group_ids(self, ids_list: str) -> bool:
+    async def check_group_ids(self, ids_list: str) -> bool:
         """
         Check if all groups with given IDs exist.
 
@@ -213,14 +217,14 @@ class VKValidator:
         """
         try:
             for group_id in ids_list.split(","):
-                if not self.check_group_id(group_id):
+                if not await self.check_group_id(group_id):
                     return False
             return True
         except Exception:
             # Any parsing or iteration error
             return False
 
-    def check_chat_id(self, id: str) -> bool:
+    async def check_chat_id(self, id: str) -> bool:
         """
         Check if chat with given ID exists.
 
@@ -241,8 +245,8 @@ class VKValidator:
         """
         try:
             # Check if chat with this id exists
-            conversation = self._authenticator.vk.messages.getConversationsById(
-                peer_ids=2000000000 + int(id)
+            conversation = await self._authenticator.vk.call(
+                "messages.getConversationsById", peer_ids=2000000000 + int(id)
             )
             if conversation["count"] != 0:
                 return True
@@ -254,7 +258,7 @@ class VKValidator:
             # Any other API or network error
             return False
 
-    def validate_chat_id(self, id: str) -> None:
+    async def validate_chat_id(self, id: str) -> None:
         """
         Validate that chat with given ID exists.
 
@@ -282,8 +286,8 @@ class VKValidator:
         try:
             # Chat IDs are converted to peer_ids by adding 2000000000
             peer_id = 2000000000 + chat_id
-            conversation = self._authenticator.vk.messages.getConversationsById(
-                peer_ids=peer_id
+            conversation = await self._authenticator.vk.call(
+                "messages.getConversationsById", peer_ids=peer_id
             )
             if conversation["count"] == 0:
                 raise ResourceNotFoundError(

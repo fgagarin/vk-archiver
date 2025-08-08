@@ -7,6 +7,7 @@ from vk_api.vk_api import VkApiMethod
 
 from .exceptions import AuthenticationError, InitializationError
 from .logging_config import get_logger
+from .rate_limiter import RateLimitedVKAPI
 
 logger = get_logger("utils.auth")
 
@@ -17,33 +18,38 @@ if TYPE_CHECKING:
 class VKAuthenticator:
     """Handles VK API authentication using token-based authentication."""
 
-    def __init__(self, config_manager: "ConfigManager") -> None:
+    def __init__(
+        self, config_manager: "ConfigManager", requests_per_second: int = 3
+    ) -> None:
         """
         Initialize VKAuthenticator with configuration manager.
 
         Args:
             config_manager: Configuration manager instance
+            requests_per_second: Maximum number of requests allowed per second (default: 3)
         """
         self._config_manager = config_manager
+        self._requests_per_second = requests_per_second
         self._vk: VkApiMethod | None = None
+        self._rate_limited_vk: RateLimitedVKAPI | None = None
 
     @property
-    def vk(self) -> VkApiMethod:
+    def vk(self) -> RateLimitedVKAPI:
         """
-        Get authenticated VK API instance.
+        Get rate-limited authenticated VK API instance.
 
         Returns:
-            Authenticated VK API instance
+            Rate-limited authenticated VK API instance
 
         Raises:
             InitializationError: If VK API is not initialized
         """
-        if self._vk is None:
+        if self._rate_limited_vk is None:
             raise InitializationError(
                 "VK API not initialized. Run `auth_by_token` method first.",
                 component="VK API",
             )
-        return self._vk
+        return self._rate_limited_vk
 
     def auth_by_token(self) -> VkApiMethod:
         """
@@ -77,6 +83,9 @@ class VKAuthenticator:
         try:
             vk_session = vk_api.VkApi(token=config["token"])
             self._vk = vk_session.get_api()
+            self._rate_limited_vk = RateLimitedVKAPI(
+                self._vk, self._requests_per_second
+            )
             logger.info("Successfully authenticated with token.")
             return self._vk
         except Exception as e:
@@ -88,7 +97,7 @@ class VKAuthenticator:
                 original_exception=e,
             ) from e
 
-    def get_user_id(self) -> int:
+    async def get_user_id(self) -> int:
         """
         Get current user ID from VK API.
 
@@ -102,5 +111,5 @@ class VKAuthenticator:
         Raises:
             InitializationError: If VK API is not initialized (call auth_by_token first)
         """
-        profile_info = self.vk.account.getProfileInfo()
+        profile_info = await self.vk.call("account.getProfileInfo")
         return int(profile_info["id"])

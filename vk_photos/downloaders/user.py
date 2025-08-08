@@ -5,13 +5,10 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from vk_api.vk_api import VkApiMethod
-
 from ..functions import decline, download_photos
-from ..utils.exceptions import (
-    InitializationError,
-)
+from ..utils.exceptions import InitializationError
 from ..utils.logging_config import get_logger
+from ..utils.rate_limiter import RateLimitedVKAPI
 
 logger = get_logger("downloaders.user")
 
@@ -40,7 +37,10 @@ class UserPhotoDownloader:
     """Downloader for photos from a single VK user profile."""
 
     def __init__(
-        self, user_id: str, vk_instance: VkApiMethod, parent_dir: Path = DOWNLOADS_DIR
+        self,
+        user_id: str,
+        vk_instance: RateLimitedVKAPI,
+        parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """
         Initialize UserPhotoDownloader.
@@ -54,7 +54,7 @@ class UserPhotoDownloader:
         self.vk = vk_instance
         self.parent_dir = parent_dir
 
-    def get_photos(self) -> list[dict[str, Any]]:
+    async def get_photos(self) -> list[dict[str, Any]]:
         """
         Get all photos from user profile.
 
@@ -76,14 +76,16 @@ class UserPhotoDownloader:
         offset = 0
         while True:
             # Collect photos from saved album
-            photos_by_saved = self.vk.photos.get(
+            photos_saved_resp = await self.vk.call(
+                "photos.get",
                 user_id=self.user_id,
                 count=100,
                 offset=offset,
                 album_id="saved",
                 photo_sizes=True,
                 extended=True,
-            )["items"]
+            )
+            photos_by_saved = photos_saved_resp["items"]
 
             raw_data = photos_by_saved  # photos_by_wall + photos_by_profile
 
@@ -105,14 +107,16 @@ class UserPhotoDownloader:
         offset = 0
         while True:
             # Collect photos from profile
-            photos_by_profile = self.vk.photos.get(
+            photos_profile_resp = await self.vk.call(
+                "photos.get",
                 user_id=self.user_id,
                 count=100,
                 offset=offset,
                 album_id="profile",
                 photo_sizes=True,
                 extended=True,
-            )["items"]
+            )
+            photos_by_profile = photos_profile_resp["items"]
 
             raw_data = photos_by_profile  # photos_by_wall + photos_by_profile
 
@@ -134,14 +138,16 @@ class UserPhotoDownloader:
         offset = 0
         while True:
             # Collect photos from wall
-            photos_by_wall = self.vk.photos.get(
+            photos_wall_resp = await self.vk.call(
+                "photos.get",
                 user_id=self.user_id,
                 count=100,
                 offset=offset,
                 album_id="wall",
                 photo_sizes=True,
                 extended=True,
-            )["items"]
+            )
+            photos_by_wall = photos_wall_resp["items"]
 
             raw_data = photos_by_wall  # photos_by_wall + photos_by_profile
 
@@ -162,13 +168,15 @@ class UserPhotoDownloader:
 
         offset = 0
         while True:
-            all_photos = self.vk.photos.getAll(
+            all_resp = await self.vk.call(
+                "photos.getAll",
                 owner_id=self.user_id,
                 count=100,
                 offset=offset,
                 photo_sizes=True,
                 extended=True,
-            )["items"]
+            )
+            all_photos = all_resp["items"]
 
             raw_data = all_photos  # photos_by_wall + photos_by_profile
 
@@ -203,9 +211,10 @@ class UserPhotoDownloader:
         Raises:
             RuntimeError: If utils instance is not initialized
         """
-        user_info = self.vk.users.get(
-            user_ids=self.user_id, fields="sex, photo_max_orig"
-        )[0]
+        user_info_list = await self.vk.call(
+            "users.get", user_ids=self.user_id, fields="sex, photo_max_orig"
+        )
+        user_info = user_info_list[0]
 
         decline_username = decline(
             first_name=user_info["first_name"],
@@ -218,7 +227,7 @@ class UserPhotoDownloader:
                 "Utils instance not initialized", component="UserPhotoDownloader"
             )
 
-        username = utils.get_username(str(self.user_id))
+        username = await utils.get_username(str(self.user_id))
 
         photos_path = self.parent_dir.joinpath(username)
         utils.create_dir(photos_path)
@@ -245,7 +254,7 @@ class UserPhotoDownloader:
                 logger.info(f"Getting photos from {decline_username}...")
 
                 # Get user photos
-                photos = self.get_photos()
+                photos = await self.get_photos()
 
             # Sort user photos by date
             photos.sort(key=lambda k: k["date"], reverse=True)
@@ -272,7 +281,7 @@ class UsersPhotoDownloader:
     def __init__(
         self,
         user_ids: list[str],
-        vk_instance: VkApiMethod,
+        vk_instance: RateLimitedVKAPI,
         parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """

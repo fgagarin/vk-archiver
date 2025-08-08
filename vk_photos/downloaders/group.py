@@ -5,10 +5,9 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from vk_api.vk_api import VkApiMethod
-
 from ..functions import download_photos, download_videos, dump
 from ..utils.logging_config import get_logger
+from ..utils.rate_limiter import RateLimitedVKAPI
 
 if TYPE_CHECKING:
     from ..utils import Utils
@@ -36,7 +35,7 @@ def set_utils_instance(utils_instance: "Utils") -> None:
 class GroupAlbumsDownloader:
     """Downloader for albums from a VK group."""
 
-    def __init__(self, group_id: str, vk_instance: VkApiMethod) -> None:
+    def __init__(self, group_id: str, vk_instance: RateLimitedVKAPI) -> None:
         """
         Initialize GroupAlbumsDownloader.
 
@@ -62,7 +61,8 @@ class GroupAlbumsDownloader:
             Photos are downloaded with full metadata including likes and dates.
             Group and album information is preserved in info.yaml files.
         """
-        group_info = self.vk.groups.getById(group_id=self.group_id)[0]
+        group_info_list = await self.vk.call("groups.getById", group_id=self.group_id)
+        group_info = group_info_list[0]
         group_name = (
             group_info["name"]
             .replace("/", " ")
@@ -76,7 +76,8 @@ class GroupAlbumsDownloader:
             utils.create_dir(group_dir)
         dump(group_info, group_dir.joinpath("info.yaml"))
 
-        albums = self.vk.photos.getAlbums(owner_id=-self.group_id)["items"]
+        albums_resp = await self.vk.call("photos.getAlbums", owner_id=-self.group_id)
+        albums = albums_resp["items"]
 
         for album in albums:
             aid = album["id"]
@@ -89,14 +90,16 @@ class GroupAlbumsDownloader:
             photos: list[dict[str, Any]] = []
             offset = 0
             while True:
-                album_photos = self.vk.photos.get(
+                album_resp = await self.vk.call(
+                    "photos.get",
                     owner_id=-self.group_id,
                     album_id=aid,
                     count=100,
                     offset=offset,
                     photo_sizes=True,
                     extended=True,
-                )["items"]
+                )
+                album_photos = album_resp["items"]
 
                 for photo in album_photos:
                     photos.append(
@@ -119,7 +122,7 @@ class GroupAlbumsDownloader:
 class GroupPhotoDownloader:
     """Downloader for photos from a single VK group wall."""
 
-    def __init__(self, group_id: str, vk_instance: VkApiMethod) -> None:
+    def __init__(self, group_id: str, vk_instance: RateLimitedVKAPI) -> None:
         """
         Initialize GroupPhotoDownloader.
 
@@ -148,9 +151,10 @@ class GroupPhotoDownloader:
         """
         offset = 0
         while True:
-            posts = self.vk.wall.get(owner_id=-self.group_id, count=100, offset=offset)[
-                "items"
-            ]
+            wall_resp = await self.vk.call(
+                "wall.get", owner_id=-self.group_id, count=100, offset=offset
+            )
+            posts = wall_resp["items"]
             for post in posts:
                 # Skip ad posts
                 if post["marked_as_ads"]:
@@ -172,9 +176,10 @@ class GroupPhotoDownloader:
             logger.info("Getting video list")
             offset = 0
             while True:
-                videos = self.vk.video.get(
-                    owner_id=-self.group_id, count=100, offset=offset
-                )["items"]
+                videos_resp = await self.vk.call(
+                    "video.get", owner_id=-self.group_id, count=100, offset=offset
+                )
+                videos = videos_resp["items"]
                 for video in videos:
                     if "player" in video:
                         self.videos_list.append(
@@ -355,7 +360,7 @@ class GroupPhotoDownloader:
 class GroupsPhotoDownloader:
     """Downloader for photos from multiple VK group walls."""
 
-    def __init__(self, group_ids: str, vk_instance: VkApiMethod) -> None:
+    def __init__(self, group_ids: str, vk_instance: RateLimitedVKAPI) -> None:
         """
         Initialize GroupsPhotoDownloader.
 
@@ -376,9 +381,10 @@ class GroupsPhotoDownloader:
         """
         offset = 0
         while True:
-            posts = self.vk.wall.get(owner_id=-group_id, count=100, offset=offset)[
-                "items"
-            ]
+            wall_resp = await self.vk.call(
+                "wall.get", owner_id=-group_id, count=100, offset=offset
+            )
+            posts = wall_resp["items"]
             for post in posts:
                 # Skip ad posts
                 if post["marked_as_ads"]:
@@ -400,9 +406,10 @@ class GroupsPhotoDownloader:
             logger.info("Getting video list")
             offset = 0
             while True:
-                videos = self.vk.video.get(
-                    owner_id=-group_id, count=100, offset=offset
-                )["items"]
+                videos_resp = await self.vk.call(
+                    "video.get", owner_id=-group_id, count=100, offset=offset
+                )
+                videos = videos_resp["items"]
                 for video in videos:
                     if "player" in video:
                         self.videos_list.append(
@@ -480,7 +487,7 @@ class GroupsPhotoDownloader:
             download_videos_flag: Whether to also download videos
         """
         groups_name = ", ".join(
-            [utils.get_group_title(str(group_id)) for group_id in self.group_ids]
+            [await utils.get_group_title(str(group_id)) for group_id in self.group_ids]
             if utils is not None
             else []
         )
@@ -491,7 +498,8 @@ class GroupsPhotoDownloader:
         download_vid = "1" if download_videos_flag else "2"
 
         for group_id in self.group_ids:
-            group_info = self.vk.groups.getById(group_id=group_id)[0]
+            group_info_list = await self.vk.call("groups.getById", group_id=group_id)
+            group_info = group_info_list[0]
             # Group is closed
             if group_info["is_closed"]:
                 logger.info(f"Group '{groups_name}' is closed :(")

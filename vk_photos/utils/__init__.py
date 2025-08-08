@@ -14,11 +14,13 @@ from .exceptions import (
     ValidationError,
     VKScroblerError,
 )
+from .rate_limiter import RateLimitedVKAPI
 from .vk_utils import Utils
 
 __all__ = [
     "consistency",
     "Utils",
+    "RateLimitedVKAPI",
     "VKScroblerError",
     "AuthenticationError",
     "ConfigurationError",

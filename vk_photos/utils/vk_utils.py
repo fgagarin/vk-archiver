@@ -3,11 +3,12 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vk_api.vk_api import VkApiMethod
+from vk_api.vk_api import VkApiMethod  # noqa: F401
 
 from .auth import VKAuthenticator
 from .config import ConfigManager
 from .file_ops import FileOperations
+from .rate_limiter import RateLimitedVKAPI
 from .validation import VKValidator
 
 if TYPE_CHECKING:
@@ -17,27 +18,28 @@ if TYPE_CHECKING:
 class Utils:
     """Main utilities class for VK API operations."""
 
-    def __init__(self, config_path: Path) -> None:
+    def __init__(self, config_path: Path, requests_per_second: int = 3) -> None:
         """
         Initialize Utils class with configuration path.
 
         Args:
             config_path: Path to the configuration file
+            requests_per_second: Maximum number of requests allowed per second (default: 3)
         """
         self._config_manager = ConfigManager(config_path)
         self._config_manager.validate_config()
 
-        self._authenticator = VKAuthenticator(self._config_manager)
+        self._authenticator = VKAuthenticator(self._config_manager, requests_per_second)
         self._validator = VKValidator(self._authenticator)
         self._file_ops = FileOperations()
 
     @property
-    def vk(self) -> VkApiMethod:
+    def vk(self) -> RateLimitedVKAPI:
         """
-        Get authenticated VK API instance.
+        Get rate-limited authenticated VK API instance.
 
         Returns:
-            Authenticated VK API instance
+            Rate-limited authenticated VK API instance
         """
         return self._authenticator.vk
 
@@ -60,16 +62,18 @@ class Utils:
         """
         self._file_ops.create_dir(dir_path)
 
-    def auth_by_token(self) -> VkApiMethod:
+    def auth_by_token(self) -> RateLimitedVKAPI:
         """
         Authenticate using VK access token only.
 
         Returns:
-            VkApiMethod: Authenticated VK API instance
+            RateLimitedVKAPI: Rate-limited authenticated VK API instance
         """
-        return self._authenticator.auth_by_token()
+        # Initialize authentication and rate-limited wrapper
+        self._authenticator.auth_by_token()
+        return self._authenticator.vk
 
-    def check_user_id(self, id: str) -> bool:
+    async def check_user_id(self, id: str) -> bool:
         """
         Check if user with given ID exists.
 
@@ -79,9 +83,9 @@ class Utils:
         Returns:
             True if user exists, False otherwise
         """
-        return self._validator.check_user_id(id)
+        return await self._validator.check_user_id(id)
 
-    def check_user_ids(self, ids_list: str) -> bool:
+    async def check_user_ids(self, ids_list: str) -> bool:
         """
         Check if all users with given IDs exist.
 
@@ -91,9 +95,9 @@ class Utils:
         Returns:
             True if all users exist, False otherwise
         """
-        return self._validator.check_user_ids(ids_list)
+        return await self._validator.check_user_ids(ids_list)
 
-    def check_group_id(self, id: str) -> bool:
+    async def check_group_id(self, id: str) -> bool:
         """
         Check if group with given ID exists.
 
@@ -103,9 +107,9 @@ class Utils:
         Returns:
             True if group exists, False otherwise
         """
-        return self._validator.check_group_id(id)
+        return await self._validator.check_group_id(id)
 
-    def check_group_ids(self, ids_list: str) -> bool:
+    async def check_group_ids(self, ids_list: str) -> bool:
         """
         Check if all groups with given IDs exist.
 
@@ -115,9 +119,9 @@ class Utils:
         Returns:
             True if all groups exist, False otherwise
         """
-        return self._validator.check_group_ids(ids_list)
+        return await self._validator.check_group_ids(ids_list)
 
-    def check_chat_id(self, id: str) -> bool:
+    async def check_chat_id(self, id: str) -> bool:
         """
         Check if chat with given ID exists.
 
@@ -127,18 +131,18 @@ class Utils:
         Returns:
             True if chat exists, False otherwise
         """
-        return self._validator.check_chat_id(id)
+        return await self._validator.check_chat_id(id)
 
-    def get_user_id(self) -> int:
+    async def get_user_id(self) -> int:
         """
         Get current user ID from VK API.
 
         Returns:
             Current user ID
         """
-        return self._authenticator.get_user_id()
+        return await self._authenticator.get_user_id()
 
-    def get_username(self, user_id: str) -> str:
+    async def get_username(self, user_id: str) -> str:
         """
         Get username by user ID.
 
@@ -155,12 +159,12 @@ class Utils:
             Uses the VK API users.get method to retrieve user information.
             Returns the combined first and last name as a string.
         """
-        user = self.vk.users.get(user_id=user_id)[0]
-        first_name = str(user["first_name"])
-        last_name = str(user["last_name"])
+        user = await self.vk.call("users.get", user_id=user_id)
+        first_name = str(user[0]["first_name"])
+        last_name = str(user[0]["last_name"])
         return f"{first_name} {last_name}"
 
-    def get_group_title(self, group_id: str) -> str:
+    async def get_group_title(self, group_id: str) -> str:
         """
         Get group title by group ID.
 
@@ -178,7 +182,7 @@ class Utils:
             Uses the VK API groups.getById method to retrieve group information.
             Sanitizes the name to ensure it's safe for use as a directory name.
         """
-        group_info = self.vk.groups.getById(group_id=group_id)
+        group_info = await self.vk.call("groups.getById", group_id=group_id)
         group_name = (
             group_info[0]["name"]
             .replace("/", " ")
@@ -188,7 +192,7 @@ class Utils:
         )
         return str(group_name)
 
-    def get_chat_title(self, chat_id: str) -> str:
+    async def get_chat_title(self, chat_id: str) -> str:
         """
         Get chat title by chat ID.
 
@@ -207,8 +211,8 @@ class Utils:
             Chat IDs are converted to peer IDs by adding 2000000000.
             Returns the chat_settings.title from the conversation data.
         """
-        conversation = self.vk.messages.getConversationsById(
-            peer_ids=2000000000 + int(chat_id)
+        conversation = await self.vk.call(
+            "messages.getConversationsById", peer_ids=2000000000 + int(chat_id)
         )
         chat_title = conversation["items"][0]["chat_settings"]["title"]
         return str(chat_title)
