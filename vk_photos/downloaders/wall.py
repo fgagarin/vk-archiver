@@ -16,6 +16,7 @@ from typing import Any
 
 from tqdm.asyncio import tqdm
 
+from ..functions import download_photos
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
@@ -216,12 +217,28 @@ class WallDownloader:
         if pbar is not None:
             pbar.close()
 
+        # Close progress bar
+        if pbar is not None:
+            pbar.close()
+
         # Persist posts and attachments index
         FileOperations.write_yaml(self._wall_dir.joinpath("posts.yaml"), posts)
         if photos_index:
             FileOperations.write_yaml(
                 self._attachments_photos_dir.joinpath("links.yaml"), photos_index
             )
+            # Also download all wall photo files into attachments/photos directory
+            photos_for_download: list[dict[str, Any]] = [
+                {
+                    "owner_id": item.get("owner_id"),
+                    "id": item.get("photo_id"),
+                    "url": item.get("url"),
+                }
+                for item in photos_index
+                if item.get("url") and item.get("photo_id") is not None
+            ]
+            if photos_for_download:
+                await download_photos(self._attachments_photos_dir, photos_for_download)
 
         logger.info(
             f"Saved {len(posts)} posts and {len(photos_index)} photo links for group {self._group_id}"
