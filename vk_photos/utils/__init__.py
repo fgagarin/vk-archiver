@@ -14,6 +14,7 @@ from .exceptions import (
     ValidationError,
     VKScroblerError,
 )
+from .file_ops import FileOperations
 from .rate_limiter import RateLimitedVKAPI
 from .vk_utils import Utils
 
@@ -21,6 +22,7 @@ __all__ = [
     "consistency",
     "Utils",
     "RateLimitedVKAPI",
+    "FileOperations",
     "VKScroblerError",
     "AuthenticationError",
     "ConfigurationError",

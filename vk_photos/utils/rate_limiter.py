@@ -1,6 +1,7 @@
 """Rate limiting utilities for VK API calls."""
 
 import asyncio
+import random
 import time
 from collections import deque
 from typing import TYPE_CHECKING, Any
@@ -22,7 +23,15 @@ class RateLimitedVKAPI:
     and ensures that the specified requests per second limit is not exceeded.
     """
 
-    def __init__(self, vk_api: "VkApiMethod", requests_per_second: int = 3) -> None:
+    def __init__(
+        self,
+        vk_api: "VkApiMethod",
+        requests_per_second: int = 3,
+        *,
+        max_retries: int = 5,
+        backoff_base_seconds: float = 0.5,
+        backoff_jitter_seconds: float = 0.2,
+    ) -> None:
         """
         Initialize RateLimitedVKAPI with VK API instance and rate limit.
 
@@ -34,6 +43,9 @@ class RateLimitedVKAPI:
         self._requests_per_second = requests_per_second
         self._request_times: deque[float] = deque()
         self._lock = asyncio.Lock()
+        self._max_retries = max_retries
+        self._backoff_base = backoff_base_seconds
+        self._backoff_jitter = backoff_jitter_seconds
 
         logger.info(
             f"Initialized rate limiter with {requests_per_second} requests per second"
@@ -113,8 +125,43 @@ class RateLimitedVKAPI:
         Raises:
             Exception: Any exception raised by the VK API call
         """
-        await self._wait_if_needed()
-        return self._make_api_call(method_name, *args, **kwargs)
+        attempt = 0
+        while True:
+            await self._wait_if_needed()
+            try:
+                return self._make_api_call(method_name, *args, **kwargs)
+            except Exception as exc:  # noqa: BLE001
+                attempt += 1
+                if attempt > self._max_retries:
+                    logger.error(
+                        f"Max retries exceeded for VK API call {method_name}: {exc}"
+                    )
+                    raise
+
+                # Heuristic detection of transient/rate-limit/5xx-like issues
+                message = str(exc).lower()
+                is_rate_limited = (
+                    "too many requests" in message
+                    or "too many requests per second" in message
+                    or "rate limit" in message
+                    or "code 6" in message  # VK API rate limit error code
+                )
+
+                # Exponential backoff with jitter
+                backoff_seconds = (
+                    2 ** (attempt - 1)
+                ) * self._backoff_base + random.uniform(0, self._backoff_jitter)
+
+                if is_rate_limited:
+                    logger.warning(
+                        f"Rate limited on {method_name}, retrying in {backoff_seconds:.2f}s (attempt {attempt}/{self._max_retries})"
+                    )
+                else:
+                    logger.warning(
+                        f"Transient VK API error on {method_name}: {exc}. Retrying in {backoff_seconds:.2f}s (attempt {attempt}/{self._max_retries})"
+                    )
+
+                await asyncio.sleep(backoff_seconds)
 
     def __getattr__(self, name: str) -> Any:
         """

@@ -14,6 +14,7 @@ from vk_api.vk_api import VkApiMethod  # noqa: F401
 from .auth import VKAuthenticator
 from .config import ConfigManager
 from .file_ops import FileOperations
+from .logging_config import get_logger
 from .rate_limiter import RateLimitedVKAPI
 from .validation import VKValidator
 
@@ -38,6 +39,7 @@ class Utils:
         self._authenticator = VKAuthenticator(self._config_manager, requests_per_second)
         self._validator = VKValidator(self._authenticator)
         self._file_ops = FileOperations()
+        self._logger = get_logger("utils")
 
     @property
     def vk(self) -> RateLimitedVKAPI:
@@ -146,6 +148,8 @@ class Utils:
             Exception: Propagates VK API errors to the caller to handle uniformly
         """
         # Request screen_name field explicitly to ensure availability
+        self._logger.info(f"Resolving group identifier: {group}")
+        # VK API allows either numeric id or screen name in group_id param
         group_info_list = await self.vk.call(
             "groups.getById", group_id=group, fields="screen_name"
         )
@@ -155,6 +159,9 @@ class Utils:
         screen_name = str(group_info.get("screen_name", ""))
         sanitized = self._sanitize_title_for_fs(name)
         folder_name = f"{group_id}-{sanitized}"
+        self._logger.info(
+            f"Resolved group -> id={group_id}, screen_name={screen_name}, folder={folder_name}"
+        )
         return Utils.ResolvedGroup(
             id=group_id,
             screen_name=screen_name,

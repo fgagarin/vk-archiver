@@ -286,6 +286,9 @@ def download(
 
     utils_instance = utils
 
+    # Ensure VK API is authenticated for resolution/API probes
+    utils_instance.auth_by_token()
+
     # Resolve group to canonical info
     resolved = loop.run_until_complete(utils_instance.resolve_group(group))
 
