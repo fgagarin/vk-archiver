@@ -1,3 +1,4 @@
 *.pyc
 downloads/
 .env
+.vscode/

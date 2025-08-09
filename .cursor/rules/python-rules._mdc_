@@ -1,0 +1,571 @@
+---
+description: Cursor IDE Rules for VK.com Scrobler Project
+globs: **/*.py
+alwaysApply: true
+---
+
+## Project Overview
+This is a VK.com photo scrobler/downloader that allows users to download photos from user profiles, group walls, chat conversations, and chat member profiles.
+
+## Core Technologies
+- Python 3.10+
+- vk-api 11.10.0+ (latest stable version)
+- aiohttp for async HTTP requests
+- asyncio for concurrent operations
+
+## Authentication Rules
+
+### CRITICAL: Login/Password Authentication is FORBIDDEN
+```python
+# ❌ FORBIDDEN - Never use login/password authentication
+def auth_with_credentials(self):
+    vk_session = vk_api.VkApi(login=config["login"], password=config["password"])
+    vk_session.auth()  # This is forbidden!
+
+# ✅ REQUIRED - Always use token-based authentication
+def auth_by_token(self) -> VkApiMethod:
+    """Authenticate using VK access token only."""
+    try:
+        vk_session = vk_api.VkApi(token=config["token"])
+        self._vk = vk_session.get_api()
+        logging.info("Successfully authenticated with token.")
+        return self._vk
+    except Exception as e:
+        logging.error(f"Authentication failed: {e}")
+        logging.info("Get token from: https://vkhost.github.io/")
+        raise AuthenticationError("Token authentication required")
+```
+
+## Data Safety Rules
+
+### CRITICAL: ALWAYS Keep User Data Safe
+```python
+# ❌ FORBIDDEN - Never delete user data
+def cleanup_old_files(self):
+    for file in old_files:
+        file.unlink()  # This is forbidden!
+
+# ✅ REQUIRED - Only create and append, always keep user data safe
+def ensure_directory_exists(self, path: Path) -> None:
+    """Create directory if it doesn't exist, never delete existing data."""
+    path.mkdir(parents=True, exist_ok=True)
+
+def safe_file_operations(self, filepath: Path, content: bytes) -> None:
+    """Safely write files without overwriting existing data."""
+    if filepath.exists():
+        logging.info(f"File already exists, skipping: {filepath}")
+        return
+
+    with open(filepath, 'wb') as f:
+        f.write(content)
+```
+
+### CRITICAL: Skip Already Downloaded Files
+```python
+# ✅ REQUIRED - Always check for existing files before downloading
+class SafePhotoDownloader:
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+        self.downloaded_files = self._get_existing_files()
+
+    def _get_existing_files(self) -> Set[str]:
+        """Get set of already downloaded file identifiers."""
+        existing_files = set()
+        if self.output_dir.exists():
+            for file_path in self.output_dir.rglob("*"):
+                if file_path.is_file():
+                    # Extract photo identifier from filename
+                    photo_id = self._extract_photo_id(file_path.name)
+                    if photo_id:
+                        existing_files.add(photo_id)
+        return existing_files
+
+    def _extract_photo_id(self, filename: str) -> Optional[str]:
+        """Extract photo identifier from filename."""
+        # Expected format: owner_id_photo_id.jpg
+        try:
+            parts = filename.split('_')
+            if len(parts) >= 2:
+                return f"{parts[0]}_{parts[1]}"
+        except Exception:
+            pass
+        return None
+
+    async def download_photo(self, photo: Dict) -> bool:
+        """Download photo only if it doesn't already exist."""
+        photo_id = f"{photo['owner_id']}_{photo['id']}"
+
+        if photo_id in self.downloaded_files:
+            logging.info(f"Photo already exists, skipping: {photo_id}")
+            return False
+
+        filename = f"{photo_id}.jpg"
+        filepath = self.output_dir / filename
+
+        if filepath.exists():
+            logging.info(f"File already exists, skipping: {filepath}")
+            self.downloaded_files.add(photo_id)
+            return False
+
+        try:
+            await self._download_single_photo(photo, filepath)
+            self.downloaded_files.add(photo_id)
+            logging.info(f"Successfully downloaded: {photo_id}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to download {photo_id}: {e}")
+            return False
+```
+
+## Multiple Program Instance Safety
+
+### CRITICAL: Ensure Consistency Across Multiple Instances
+```python
+# ✅ REQUIRED - Implement file locking and consistency checks
+import fcntl
+import json
+from pathlib import Path
+from typing import Dict, Set
+
+class ConsistencyManager:
+    def __init__(self, lock_file: Path):
+        self.lock_file = lock_file
+        self.downloaded_files: Set[str] = set()
+        self._load_downloaded_files()
+
+    def _load_downloaded_files(self) -> None:
+        """Load list of downloaded files from persistent storage."""
+        if self.lock_file.exists():
+            try:
+                with open(self.lock_file, 'r') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                    data = json.load(f)
+                    self.downloaded_files = set(data.get('downloaded_files', []))
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except Exception as e:
+                logging.warning(f"Could not load downloaded files list: {e}")
+
+    def _save_downloaded_files(self) -> None:
+        """Save list of downloaded files to persistent storage."""
+        try:
+            with open(self.lock_file, 'w') as f:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+                json.dump({'downloaded_files': list(self.downloaded_files)}, f)
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        except Exception as e:
+            logging.error(f"Could not save downloaded files list: {e}")
+
+    def is_already_downloaded(self, photo_id: str) -> bool:
+        """Check if photo is already downloaded by any instance."""
+        return photo_id in self.downloaded_files
+
+    def mark_as_downloaded(self, photo_id: str) -> None:
+        """Mark photo as downloaded and persist the information."""
+        self.downloaded_files.add(photo_id)
+        self._save_downloaded_files()
+```
+
+## Code Style and Structure Rules
+
+### Python Best Practices
+```python
+# ✅ REQUIRED - Use type hints for all functions
+from typing import List, Dict, Optional, Set, Any
+from pathlib import Path
+
+def get_photos(self) -> List[Dict[str, Any]]:
+    """Retrieve photos from VK API."""
+    pass
+
+# ✅ REQUIRED - Use descriptive variable names
+user_photo_downloader = UserPhotoDownloader(user_id=user_id, vk_instance=vk)
+photos_list = []
+
+# ❌ FORBIDDEN - Avoid unclear abbreviations
+upd = UserPhotoDownloader(uid=uid, vk=vk)  # Bad
+pl = []  # Bad
+```
+
+### Class Design Rules
+```python
+# ✅ REQUIRED - Single responsibility principle
+class UserPhotoDownloader:
+    """Handles downloading photos from user profiles only."""
+
+class GroupPhotoDownloader:
+    """Handles downloading photos from group walls only."""
+
+class ConsistencyManager:
+    """Manages download consistency across multiple instances only."""
+```
+
+### Error Handling Rules
+```python
+# ✅ REQUIRED - Comprehensive error handling
+class VKScroblerError(Exception):
+    """Base exception for VK scrobler."""
+    pass
+
+class AuthenticationError(VKScroblerError):
+    """Raised when authentication fails."""
+    pass
+
+class DownloadError(VKScroblerError):
+    """Raised when download fails."""
+    pass
+
+def safe_download_photos(self, photos: List[Dict]) -> int:
+    """Safely download photos with error handling."""
+    downloaded_count = 0
+
+    for photo in photos:
+        try:
+            if not self.consistency_manager.is_already_downloaded(photo['id']):
+                success = await self._download_single_photo(photo)
+                if success:
+                    self.consistency_manager.mark_as_downloaded(photo['id'])
+                    downloaded_count += 1
+            else:
+                logging.info(f"Photo {photo['id']} already downloaded, skipping")
+        except DownloadError as e:
+            logging.error(f"Failed to download photo {photo['id']}: {e}")
+            continue
+        except Exception as e:
+            logging.error(f"Unexpected error downloading photo {photo['id']}: {e}")
+            continue
+
+    return downloaded_count
+```
+
+## VK API Integration Rules
+
+### Use Latest vk-api Library
+```python
+# ✅ REQUIRED - Always use latest vk-api version
+# In pyproject.toml
+dependencies = [
+    "vk-api>=11.10.0",  # Use latest version
+]
+```
+
+### Rate Limiting
+```python
+# ✅ REQUIRED - Implement rate limiting
+class RateLimitedVKAPI:
+    def __init__(self, requests_per_second: int = 3):
+        self.requests_per_second = requests_per_second
+        self.last_request_time = 0
+
+    async def make_request(self, method, *args, **kwargs):
+        """Make rate-limited API request."""
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+
+        if time_since_last < (1.0 / self.requests_per_second):
+            await asyncio.sleep((1.0 / self.requests_per_second) - time_since_last)
+
+        self.last_request_time = time.time()
+        return method(*args, **kwargs)
+```
+
+## CLI Interface Rules
+
+### CRITICAL: Use Click for CLI Arguments
+```python
+# ✅ REQUIRED - Use Click for all CLI interfaces
+import click
+import os
+from pathlib import Path
+
+@click.command()
+@click.option('--user-id', envvar='VK_USER_ID', help='VK user ID to download photos from')
+@click.option('--group-id', envvar='VK_GROUP_ID', help='VK group ID to download photos from')
+@click.option('--chat-id', envvar='VK_CHAT_ID', help='VK chat ID to download photos from')
+@click.option('--output-dir', envvar='VK_OUTPUT_DIR', default='./downloads',
+              help='Output directory for downloaded photos')
+@click.option('--config-file', envvar='VK_CONFIG_FILE', default='config.yaml',
+              help='Path to configuration file')
+@click.option('--download-videos', envvar='VK_DOWNLOAD_VIDEOS', is_flag=True,
+              help='Also download videos')
+@click.option('--rate-limit', envvar='VK_RATE_LIMIT', default=3, type=int,
+              help='API requests per second')
+def main(user_id: str, group_id: str, chat_id: str, output_dir: str,
+         config_file: str, download_videos: bool, rate_limit: int):
+    """VK.com Photo Scrobler - Download photos from VK profiles, groups, and chats."""
+    # Implementation here
+    pass
+
+# ❌ FORBIDDEN - Don't use argparse or sys.argv directly
+import sys
+import argparse  # This is forbidden for this project!
+```
+
+### CRITICAL: Never Pass Access Token as CLI Parameters
+```python
+# ❌ FORBIDDEN - Never pass tokens via CLI arguments
+@click.option('--token', help='VK access token')  # This is forbidden!
+
+# ✅ REQUIRED - Use config file or environment variables only
+class SecureTokenManager:
+    def __init__(self, config_file: Path):
+        self.config_file = config_file
+
+    def get_token(self) -> str:
+        """Get VK token from environment or config file only."""
+        # First try environment variable
+        token = os.getenv('VK_TOKEN')
+        if token:
+            return token
+
+        # Then try config file
+        if self.config_file.exists():
+            with open(self.config_file, 'r') as f:
+                config = yaml.safe_load(f)
+                return config.get('token', '')
+
+        raise AuthenticationError("VK token not found in environment or config file")
+
+    def validate_token_source(self) -> None:
+        """Validate that token is not passed via CLI."""
+        if 'VK_TOKEN' in sys.argv:
+            raise SecurityError("VK token should not be passed via CLI arguments")
+
+# ✅ REQUIRED - Environment variable usage
+# Set in shell: export VK_TOKEN="your_token_here"
+# Or in .env file: VK_TOKEN=your_token_here
+```
+
+### CLI Parameter Validation
+```python
+# ✅ REQUIRED - Validate all CLI parameters
+class CLIParameterValidator:
+    @staticmethod
+    def validate_user_id(user_id: Optional[str]) -> Optional[str]:
+        """Validate user ID parameter."""
+        if user_id is None:
+            return None
+
+        try:
+            user_id_int = int(user_id)
+            if 1 <= user_id_int <= 2147483647:
+                return user_id
+        except ValueError:
+            pass
+
+        raise click.BadParameter(f"Invalid user ID: {user_id}")
+
+    @staticmethod
+    def validate_output_dir(output_dir: str) -> Path:
+        """Validate and create output directory."""
+        path = Path(output_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @staticmethod
+    def validate_config_file(config_file: str) -> Path:
+        """Validate config file exists."""
+        path = Path(config_file)
+        if not path.exists():
+            raise click.BadParameter(f"Config file not found: {config_file}")
+        return path
+```
+
+## Security Rules
+
+### Input Validation
+```python
+# ✅ REQUIRED - Validate all inputs
+class InputValidator:
+    @staticmethod
+    def validate_user_id(user_id: Union[str, int]) -> bool:
+        """Validate VK user ID."""
+        try:
+            user_id_int = int(user_id)
+            return 1 <= user_id_int <= 2147483647
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
+    def sanitize_filename(filename: str) -> str:
+        """Sanitize filename for safe file system operations."""
+        unsafe_chars = r'[<>:"/\\|?*]'
+        return re.sub(unsafe_chars, '_', filename)
+```
+
+### Configuration Security
+```python
+# ✅ REQUIRED - Secure configuration handling
+import os
+from pathlib import Path
+
+class SecureConfig:
+    def __init__(self, config_path: Path):
+        self.config_path = config_path
+        self._config = None
+
+    def load_config(self) -> Dict:
+        """Load configuration securely."""
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {self.config_path}")
+
+        # Check file permissions
+        if self.config_path.stat().st_mode & 0o777 != 0o600:
+            logging.warning(f"Config file {self.config_path} has insecure permissions")
+
+        with open(self.config_path, 'r', encoding='utf-8') as f:
+            self._config = yaml.safe_load(f)
+
+        return self._config
+
+    @property
+    def token(self) -> str:
+        """Get VK token from environment or config."""
+        return os.getenv('VK_TOKEN') or self._config.get('token')
+```
+
+## Testing Rules
+
+### Unit Testing
+```python
+# ✅ REQUIRED - Comprehensive unit tests
+import pytest
+from unittest.mock import Mock, patch
+
+class TestUserPhotoDownloader:
+    @pytest.fixture
+    def mock_vk_api(self):
+        """Mock VK API for testing."""
+        mock_api = Mock()
+        mock_api.users.get.return_value = [{
+            'id': 123456,
+            'first_name': 'Test',
+            'last_name': 'User',
+            'sex': 1
+        }]
+        return mock_api
+
+    def test_skip_already_downloaded_photos(self, mock_vk_api):
+        """Test that already downloaded photos are skipped."""
+        downloader = UserPhotoDownloader('123456', mock_vk_api)
+        # Test implementation
+```
+
+## Documentation Rules
+
+### Docstrings
+```python
+# ✅ REQUIRED - Comprehensive docstrings
+class UserPhotoDownloader:
+    """
+    Download photos from VK user profiles.
+
+    This class handles downloading photos from various user albums including
+    saved photos, profile photos, wall photos, and all photos.
+
+    Attributes:
+        user_id (str): VK user ID to download photos from
+        vk (VkApiMethod): Authenticated VK API instance
+        parent_dir (Path): Directory to save downloaded photos
+        consistency_manager (ConsistencyManager): Manages download consistency
+
+    Example:
+        >>> downloader = UserPhotoDownloader('123456', vk_api)
+        >>> await downloader.main()
+    """
+```
+
+## Code Review Checklist
+
+### Before Submitting Code
+- [ ] **Authentication**: Uses token-based auth only (no login/password)
+- [ ] **Data Safety**: Always keeps user data safe
+- [ ] **Consistency**: Implements download consistency across multiple instances
+- [ ] **Skip Logic**: Skips already downloaded files
+- [ ] **CLI Interface**: Uses Click for all CLI arguments
+- [ ] **Token Security**: Never passes access token as CLI parameters
+- [ ] **Parameter Sources**: Uses CLI arguments or environment variables for parameters
+- [ ] **Code Style**: Follows PEP 8 and project conventions
+- [ ] **Type Hints**: All functions have proper type annotations
+- [ ] **Documentation**: Functions and classes have docstrings
+- [ ] **Error Handling**: Comprehensive exception handling
+- [ ] **Logging**: Appropriate logging statements
+- [ ] **Testing**: Unit tests for new functionality
+- [ ] **Performance**: No obvious performance issues
+- [ ] **Security**: Input validation and secure practices
+- [ ] **VK API**: Uses latest vk-api library version
+- [ ] **Async**: Proper async/await usage where appropriate
+
+### Critical Questions
+1. **Does the code use token authentication only?**
+2. **Does the code always keep user data safe?**
+3. **Does the code skip already downloaded files?**
+4. **Does the code handle multiple program instances safely?**
+5. **Does the code use Click for CLI interface?**
+6. **Does the code never pass access tokens as CLI parameters?**
+7. **Does the code use CLI arguments or environment variables for parameters?**
+8. **Does the code handle VK API rate limits properly?**
+9. **Are all user inputs validated and sanitized?**
+10. **Does the code handle network failures gracefully?**
+11. **Is the error handling comprehensive?**
+
+## Performance Rules
+
+### Async/Await Usage
+```python
+# ✅ REQUIRED - Use async for I/O operations
+import aiohttp
+import asyncio
+
+class AsyncPhotoDownloader:
+    def __init__(self, session: aiohttp.ClientSession):
+        self.session = session
+
+    async def download_photos(self, photos: List[Dict], output_dir: Path) -> None:
+        """Download multiple photos concurrently."""
+        semaphore = asyncio.Semaphore(10)  # Limit concurrent downloads
+
+        async def download_with_semaphore(photo: Dict):
+            async with semaphore:
+                return await self._download_single_photo(photo, output_dir)
+
+        tasks = [download_with_semaphore(photo) for photo in photos]
+        await asyncio.gather(*tasks, return_exceptions=True)
+```
+
+## File Organization Rules
+
+### Module Structure
+```
+vk_photos/
+├── __init__.py
+├── main.py              # Main entry point
+├── downloaders/         # Downloader classes
+│   ├── __init__.py
+│   ├── user.py
+│   ├── group.py
+│   └── chat.py
+├── utils/               # Utility functions
+│   ├── __init__.py
+│   ├── auth.py
+│   ├── validation.py
+│   ├── consistency.py   # Consistency management
+│   └── file_ops.py
+├── config/              # Configuration
+│   ├── __init__.py
+│   └── settings.py
+└── tests/               # Test files
+    ├── __init__.py
+    ├── test_downloaders.py
+    └── test_utils.py
+```
+
+---
+
+**CRITICAL REMINDERS:**
+1. **NEVER use login/password authentication** - only token-based auth
+2. **ALWAYS keep user data safe** - only create and append
+3. **ALWAYS skip already downloaded files** - implement consistency checks
+4. **ALWAYS handle multiple program instances** - use file locking and persistence
+5. **ALWAYS use Click for CLI interface** - never use argparse or sys.argv directly
+6. **NEVER pass access tokens as CLI parameters** - use config file or environment variables only
+7. **ALWAYS use the latest vk-api library** - stay updated with VK API changes
