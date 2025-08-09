@@ -9,6 +9,7 @@ from .group import GroupAlbumsDownloader, GroupPhotoDownloader, GroupsPhotoDownl
 from .metadata import MetadataDownloader
 from .photos import PhotosDownloader
 from .user import UserPhotoDownloader, UsersPhotoDownloader
+from .videos import VideosDownloader
 from .wall import WallDownloader
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "GroupsPhotoDownloader",
     "MetadataDownloader",
     "WallDownloader",
+    "VideosDownloader",
     "PhotosDownloader",
     "UserPhotoDownloader",
     "UsersPhotoDownloader",

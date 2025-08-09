@@ -17,6 +17,7 @@ from .downloaders import (
     PhotosDownloader,
     UserPhotoDownloader,
     UsersPhotoDownloader,
+    VideosDownloader,
     WallDownloader,
 )
 from .utils import Utils
@@ -382,6 +383,22 @@ def download(
                 max_items=max_items,
             )
             loop.run_until_complete(photos.run())
+
+    # Videos after photos
+    if selected_types == "all" or "videos" in selected_types:
+        if dry_run:
+            click.echo(
+                "[dry-run] Would download videos metadata and files when allowed"
+            )
+        else:
+            videos = VideosDownloader(
+                vk=utils_instance.vk,
+                utils=utils_instance,
+                base_dir=base_dir,
+                group_id=resolved.id,
+                max_items=max_items,
+            )
+            loop.run_until_complete(videos.run())
 
 
 @click.option(
