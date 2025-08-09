@@ -7,6 +7,7 @@ from .chat import (
 )
 from .group import GroupAlbumsDownloader, GroupPhotoDownloader, GroupsPhotoDownloader
 from .metadata import MetadataDownloader
+from .photos import PhotosDownloader
 from .user import UserPhotoDownloader, UsersPhotoDownloader
 from .wall import WallDownloader
 
@@ -19,6 +20,7 @@ __all__ = [
     "GroupsPhotoDownloader",
     "MetadataDownloader",
     "WallDownloader",
+    "PhotosDownloader",
     "UserPhotoDownloader",
     "UsersPhotoDownloader",
 ]

@@ -14,6 +14,7 @@ from .downloaders import (
     GroupPhotoDownloader,
     GroupsPhotoDownloader,
     MetadataDownloader,
+    PhotosDownloader,
     UserPhotoDownloader,
     UsersPhotoDownloader,
     WallDownloader,
@@ -367,6 +368,20 @@ def download(
                 max_items=max_items,
             )
             loop.run_until_complete(wall.run())
+
+    # Photos (albums and photos) after wall
+    if selected_types == "all" or "photos" in selected_types:
+        if dry_run:
+            click.echo("[dry-run] Would download albums and photos into albums folders")
+        else:
+            photos = PhotosDownloader(
+                vk=utils_instance.vk,
+                utils=utils_instance,
+                base_dir=base_dir,
+                group_id=resolved.id,
+                max_items=max_items,
+            )
+            loop.run_until_complete(photos.run())
 
 
 @click.option(
