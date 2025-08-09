@@ -20,6 +20,7 @@ from ..functions import download_photo
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
+from ..utils.state import TypeStateStore
 
 logger = get_logger("downloaders.photos")
 
@@ -76,10 +77,13 @@ class PhotosDownloader:
         self._base_dir = base_dir
         self._params = PhotosRunParams(max_items=max_items)
         self._photos_root = self._base_dir.joinpath("photos")
+        self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
 
     async def _fetch_all_albums(self) -> list[dict[str, Any]]:
         albums: list[dict[str, Any]] = []
-        offset = 0
+        # Resume album pagination
+        existing = self._state.get("photos")
+        offset = int(existing.get("albums_offset", 0))
         count = 100
         while True:
             resp = await self._vk.call(
@@ -94,6 +98,7 @@ class PhotosDownloader:
             if len(items) < count:
                 break
             offset += count
+            self._state.update("photos", {"albums_offset": offset})
         return albums
 
     async def _fetch_album_photos(self, album_id: int) -> list[dict[str, Any]]:
@@ -144,7 +149,15 @@ class PhotosDownloader:
             FileOperations.write_yaml(album_dir.joinpath("info.yaml"), album)
 
             # Collect photos for this album
+            # Resume per-album offset
+            album_state_key = f"album_{aid}"
+            a_state = self._state.get(album_state_key)
+            album_offset = int(a_state.get("offset", 0))
+
+            # Fetch all then slice by resume offset (VK photos.get supports offset)
             items = await self._fetch_album_photos(aid)
+            if album_offset:
+                items = items[album_offset:]
 
             if remaining is not None and len(items) > remaining:
                 items = items[:remaining]
@@ -171,10 +184,16 @@ class PhotosDownloader:
                     tasks.append(download_photo(session, url, target))
 
                 # Execute
+                processed = 0
                 for t in asyncio.as_completed(tasks):
                     await t
+                    processed += 1
 
             if remaining is not None:
                 remaining -= len(items)
+
+            # Update per-album resume point
+            new_offset = album_offset + len(items)
+            self._state.update(album_state_key, {"offset": new_offset})
 
         logger.info("Finished photos download for group %s", self._group_id)

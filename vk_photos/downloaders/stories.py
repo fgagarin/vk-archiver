@@ -17,6 +17,7 @@ import aiohttp
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
+from ..utils.state import TypeStateStore
 
 logger = get_logger("downloaders.stories")
 
@@ -90,6 +91,7 @@ class StoriesDownloader:
         self._group_id = group_id
         self._stories_dir = self._base_dir.joinpath("stories")
         self._files_dir = self._stories_dir.joinpath("files")
+        self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
 
     def _collect_media_jobs(self, payload: dict[str, Any]) -> list[tuple[str, Path]]:
         jobs: list[tuple[str, Path]] = []
@@ -154,6 +156,8 @@ class StoriesDownloader:
                 await t
 
         logger.info("Saved %d stories media files", len(jobs))
+        # Track that stories were fetched at least once
+        self._state.update("stories", {"last_run": True})
 
     async def _download_direct(
         self, session: aiohttp.ClientSession, url: str, target: Path

@@ -17,6 +17,7 @@ from typing import Any
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
+from ..utils.state import TypeStateStore
 
 logger = get_logger("downloaders.wall")
 
@@ -84,6 +85,7 @@ class WallDownloader:
         self._wall_dir = self._base_dir.joinpath("wall")
         self._attachments_dir = self._wall_dir.joinpath("attachments")
         self._attachments_photos_dir = self._attachments_dir.joinpath("photos")
+        self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
 
     def _post_passes_filters(self, post: dict[str, Any]) -> bool:
         ts = int(post.get("date", 0))
@@ -128,7 +130,9 @@ class WallDownloader:
         posts: list[dict[str, Any]] = []
         photos_index: list[dict[str, Any]] = []
 
-        offset = 0
+        # Resume offset if present
+        existing = self._state.get("wall")
+        offset = int(existing.get("offset", 0))
         count = 100
         saved = 0
         total_posts: int | None = None
@@ -188,6 +192,8 @@ class WallDownloader:
                 break
 
             offset += count
+            # Persist resume point
+            self._state.update("wall", {"offset": offset})
             # Log progress every page
             logger.info(
                 f"Wall pagination: saved={saved}, offset={offset}, total={total_posts}"

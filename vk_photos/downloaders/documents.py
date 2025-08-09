@@ -18,6 +18,7 @@ import aiohttp
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
+from ..utils.state import TypeStateStore
 
 logger = get_logger("downloaders.documents")
 
@@ -88,10 +89,12 @@ class DocumentsDownloader:
         self._params = DocumentsRunParams(max_items=max_items)
         self._docs_dir = self._base_dir.joinpath("documents")
         self._files_dir = self._docs_dir.joinpath("files")
+        self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
 
     async def _fetch_all_docs(self) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        offset = 0
+        existing = self._state.get("documents")
+        offset = int(existing.get("offset", 0))
         count = 200
         while True:
             resp = await self._vk.call(
@@ -114,6 +117,7 @@ class DocumentsDownloader:
             if len(page) < count:
                 break
             offset += count
+            self._state.update("documents", {"offset": offset})
         return items
 
     async def _download_direct(
