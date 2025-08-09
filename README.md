@@ -1,72 +1,122 @@
-<h1 align="center">Скрипт для скачивания фотографий пользователей / групп / бесед ВКонтакте</h1>
+# VK Photos CLI
 
 <div align="center">
-	<a href="https://github.com/YarikMix/vk-admin-bot/vk-photos">
-		<img src="https://img.shields.io/github/stars/YarikMix/vk-photos" alt="Stars Badge"/>
-	</a>	
+  <a href="https://github.com/YarikMix/vk-photos">
+    <img src="https://img.shields.io/github/stars/YarikMix/vk-photos" alt="Stars Badge"/>
+  </a>
 </div>
 
+Command-line tool to download VK community content: metadata, wall posts, photos, videos, documents, and stories. Saves structured YAML metadata alongside files. Token-only authentication; no login/password.
 
-### Системные требования:
+## Requirements
 
-* Python 3 и выше
-* Доступ к интернету
-* Логин и пароль от ВКонтакте
+- Python 3.10+
+- Internet access
+- VK access token (see below)
 
-### Как использовать:
+## Install and run with uv
 
-Скачиваем зависимости:
+Recommended via `uv` for isolated env and dependency management:
+
 ```bash
-pip3 install -r requirements.txt
+# Install uv (see https://github.com/astral-sh/uv)
+
+# Run the CLI directly (no manual env activation needed)
+uv run vk-photos --help
+
+# Or create a local environment and install dependencies (including dev)
+uv sync
 ```
 
-В файл config.yaml вписываем свой логин и пароль от ВКонтакте:
+Alternative (pip):
+```bash
+pip install -r requirements.txt
+```
+
+## Get a VK access token
+
+Use an official method to obtain a token with the required scopes:
+
+- Recommended: `https://vkhost.github.io/` — request scopes as needed: `groups, wall, photos, video, docs, stories`.
+
+Provide the token either via environment or config:
+
+- Environment:
+```bash
+export VK_TOKEN=YOUR_TOKEN_HERE
+```
+- Or in `vk_photos/config.yaml`:
 ```yaml
-login: ""  # Ваш логин он ВКонтакте
-password: ""  # Ваш пароль он ВКонтакте
-token: ""  # Ваш токен (для скачивания фото участников беседы)
+token: YOUR_TOKEN_HERE
 ```
 
-Запускаем скрипт:
+> Note: login/password auth is not supported and is explicitly forbidden.
+
+## CLI usage
+
+General form:
 ```bash
-python vk-photos/main.py
+uv run vk-photos [OPTIONS] COMMAND [ARGS]...
 ```
 
-Вводим 1, 2, 3 в зависимости от того, чьи фото мы хотим скачать
+Global options:
+- `-o, --output-dir` — base output directory (default `./downloads`)
+- `-r, --rate-limit` — VK API requests per second (default 3)
+
+### Universal community download
 ```bash
->
+uv run vk-photos download \
+  --group <screen_name|id> \
+  --types metadata,wall,photos,videos,documents,stories \
+  --output downloads \
+  --since 2024-01-01 \
+  --until 2025-01-01 \
+  --max-items 500 \
+  --concurrency 8 \
+  --resume \
+  --dry-run
 ```
 
-<h2 align="center">(1) Скачать все фото пользователя</h2>
-
-Вводим id пользователя
+Examples:
 ```bash
-> 345691818
-```
-***Узнать id пользователя или группы ВКонтакте можно [тут](https://regvk.com/id/)***
+# Metadata only
+uv run vk-photos download --group habr --types metadata
 
-<h2 align="center">(2) Скачать все фото со стены группы</h2>
+# Wall with date filters
+uv run vk-photos download --group 1 --types wall --since 2024-01-01 --max-items 200
 
-Вводим id группы
-```bash
-> 93933459
-```
+# Albums with parallel downloads
+uv run vk-photos download --group mygroup --types photos --concurrency 8
 
-***Узнать id пользователя или группы ВКонтакте можно [тут](https://regvk.com/id/)***
+# Videos (yt-dlp). Errors are written to *_error.txt
+uv run vk-photos download --group mygroup --types videos --max-items 50
 
-
-<h2 align="center">(3) Скачать все фото участников беседы</h2>
-
-Вводим id беседы
-```bash
-> 136
+# Documents and stories
+uv run vk-photos download --group mygroup --types documents,stories
 ```
 
-***[Гайд, как узнать id беседы](https://online-vkontakte.ru/2019/01/kak-uznat-id-besedy-v-vk.html)***
+## Storage layout
 
+```
+downloads/
+  <group-id>-<group-title>/
+    metadata/group.yaml
+    wall/posts.yaml
+    wall/attachments/photos/links.yaml
+    wall/attachments/photos/<owner_id>_<photo_id>.jpg
+    photos/<album-id>-<album-title>/info.yaml
+    photos/<album-id>-<album-title>/<group-id>-<photo-id>.<ext>
+    videos/videos.yaml
+    videos/files/<video_id>.mp4
+    documents/docs.yaml
+    documents/files/<doc_id>_<name>.<ext>
+    stories/stories.yaml
+    stories/files/<story_id>.(mp4|jpg)
+    state.json
+```
 
+## Resume and error handling
 
-После того, как все фотографии скачаются, появится папка 'Фотки' c фотографиями<br><br>
-![](https://github.com/YarikMix/vk-photos/raw/main/images/1.png)<br><br>
-![](https://github.com/YarikMix/vk-photos/raw/main/images/2.png)<br><br>
-![](https://github.com/YarikMix/vk-photos/raw/main/images/3.png)
+- Resume: `state.json` in the group root keeps cursors/offsets.
+- Idempotency: existing files are skipped.
+- Errors: per-file `*_error.txt` markers are created with details; files are retried on the next run.
