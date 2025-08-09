@@ -71,7 +71,7 @@ class GroupAlbumsDownloader:
         for album in albums:
             aid = album["id"]
             album_name = album["title"]
-            album_dir = group_dir.joinpath(f"{aid}-{album_name}")
+            album_dir = group_dir.joinpath(f"albums/{aid}-{album_name}")
             self.utils.create_dir(album_dir)
             dump(album, album_dir.joinpath("info.yaml"))
 
