@@ -158,15 +158,9 @@ class PhotosDownloader:
             FileOperations.write_yaml(album_dir.joinpath("info.yaml"), album)
 
             # Collect photos for this album
-            # Resume per-album offset
-            album_state_key = f"album_{aid}"
-            a_state = self._state.get(album_state_key)
-            album_offset = int(a_state.get("offset", 0))
-
-            # Fetch all then slice by resume offset (VK photos.get supports offset)
+            # Fetch all photos for the album; we rely on file-exists skip and
+            # error markers to avoid duplicates and to retry failures next runs.
             items = await self._fetch_album_photos(aid)
-            if album_offset:
-                items = items[album_offset:]
 
             if remaining is not None and len(items) > remaining:
                 items = items[:remaining]
@@ -198,22 +192,29 @@ class PhotosDownloader:
                         session: aiohttp.ClientSession = session,
                     ) -> None:
                         async with sem:
-                            await download_photo(session, url, target)
+                            try:
+                                await download_photo(session, url, target)
+                            except Exception as exc:  # noqa: BLE001
+                                marker = target.parent.joinpath(
+                                    f"{target.name}_error.txt"
+                                )
+                                try:
+                                    FileOperations.atomic_write_bytes(
+                                        marker, str(exc).encode("utf-8")
+                                    )
+                                except Exception:  # noqa: BLE001
+                                    pass
 
                     tasks.append(_bounded())
 
                 # Execute
-                processed = 0
                 for t in asyncio.as_completed(tasks):
                     await t
-                    processed += 1
 
             if remaining is not None:
                 remaining -= len(items)
 
-            # Update per-album resume point
-            new_offset = album_offset + len(items)
-            self._state.update(album_state_key, {"offset": new_offset})
+            # Do not advance per-album offset so failed items can be retried next run
 
         logger.info("Finished photos download for group %s", self._group_id)
         return {
