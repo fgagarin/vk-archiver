@@ -438,11 +438,18 @@ def download(
             )
             summaries.append(loop.run_until_complete(docs.run()))
 
-    # Emit a simple summary report
+    # Emit a simple summary report with totals
     if summaries:
         click.echo("Summary:")
+        total_items = 0
+        total_failures = 0
         for s in summaries:
+            items = int(s.get("items", 0) or 0)
+            failures = int(s.get("failures", 0) or 0)
+            total_items += items
+            total_failures += failures
             click.echo(f"  - {s}")
+        click.echo(f"Totals: items={total_items}, failures={total_failures}")
 
 
 @click.option(

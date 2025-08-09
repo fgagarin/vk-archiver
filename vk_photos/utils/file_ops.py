@@ -33,7 +33,7 @@ class FileOperations:
             dir_path.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    def atomic_write_bytes(target_path: Path, data: bytes) -> None:
+    def atomic_write_bytes(target_path: Path, data: bytes) -> int:
         """Write bytes to a temp file and atomically rename into place.
 
         Args:
@@ -46,9 +46,10 @@ class FileOperations:
             f.write(data)
             f.flush()
         tmp_path.replace(target_path)
+        return len(data)
 
     @staticmethod
-    def write_yaml(target_path: Path, payload: Any) -> None:
+    def write_yaml(target_path: Path, payload: Any) -> int:
         """Write an object as YAML using atomic write.
 
         Args:
@@ -56,4 +57,4 @@ class FileOperations:
             payload: Serializable object
         """
         text = yaml.dump(payload, allow_unicode=True, indent=2)
-        FileOperations.atomic_write_bytes(target_path, text.encode("utf-8"))
+        return FileOperations.atomic_write_bytes(target_path, text.encode("utf-8"))
