@@ -9,14 +9,16 @@ Step 4 from the group downloads plan:
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import aiohttp
 from tqdm.asyncio import tqdm
 
-from ..functions import download_photos
+from ..functions import download_photo, download_photos
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
@@ -38,6 +40,21 @@ def _parse_date(date_str: str | None) -> int | None:
         return None
     dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     return int(dt.timestamp())
+
+
+def _format_day(ts: int) -> str:
+    """Format unix timestamp to YYYY-MM-DD (UTC)."""
+    return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def _ext_from_url(url: str) -> str:
+    """Best-effort extension from URL path; defaults to jpg."""
+    path = url.split("?")[0]
+    if "." in path:
+        ext = path.rsplit(".", 1)[-1].lower()
+        if 1 <= len(ext) <= 5 and all(c.isalnum() for c in ext):
+            return ext
+    return "jpg"
 
 
 @dataclass
@@ -239,6 +256,58 @@ class WallDownloader:
             ]
             if photos_for_download:
                 await download_photos(self._attachments_photos_dir, photos_for_download)
+
+        # Write per-post text files and co-located attachments
+        posts_dir = self._wall_dir.joinpath("by_post")
+        self._utils.create_dir(posts_dir)
+
+        # Map post_id -> YYYY-MM-DD
+        post_id_to_date: dict[int, str] = {
+            int(p.get("id")): _format_day(int(p.get("date", 0))) for p in posts
+        }
+
+        # Save each post text
+        for post in posts:
+            pid = int(post.get("id"))
+            day = post_id_to_date.get(pid, _format_day(int(post.get("date", 0))))
+            text_content = str(post.get("text") or "")
+            text_path = posts_dir.joinpath(f"{day}-{pid}.txt")
+            FileOperations.atomic_write_bytes(text_path, text_content.encode("utf-8"))
+
+        # Download per-post photo attachments into the same directory with naming rule
+        photo_jobs: list[tuple[str, Path]] = []
+        for item in photos_index:
+            url = item.get("url")
+            post_id = item.get("post_id")
+            photo_id = item.get("photo_id")
+            if not (
+                isinstance(url, str)
+                and url
+                and isinstance(post_id, int)
+                and photo_id is not None
+            ):
+                continue
+            day = post_id_to_date.get(int(post_id), "unknown")
+            ext = _ext_from_url(url)
+            target = posts_dir.joinpath(f"{day}-{post_id}-{photo_id}.{ext}")
+            if target.exists():
+                continue
+            photo_jobs.append((url, target))
+
+        if photo_jobs:
+            async with aiohttp.ClientSession() as session:
+                sem = asyncio.Semaphore(8)
+
+                async def _bounded(url: str, dest: Path) -> None:
+                    async with sem:
+                        await download_photo(session, url, dest)
+
+                tasks = [_bounded(url, dest) for (url, dest) in photo_jobs]
+                for t in asyncio.as_completed(tasks):
+                    try:
+                        await t
+                    except Exception:
+                        pass
 
         logger.info(
             f"Saved {len(posts)} posts and {len(photos_index)} photo links for group {self._group_id}"
