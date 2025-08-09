@@ -211,6 +211,111 @@ def main(
 
 @main.command()
 @click.option(
+    "--group",
+    required=True,
+    help=(
+        "Group screen name or numeric id (without minus). "
+        "Resolves to canonical folder name and group id."
+    ),
+)
+@click.option(
+    "--types",
+    default="all",
+    help=(
+        "Comma-separated list of types to download: metadata,wall,photos,videos,documents,stories. "
+        "Use 'all' to download everything."
+    ),
+)
+@click.option(
+    "--output",
+    default="downloads",
+    show_default=True,
+    help="Base output directory",
+)
+@click.option(
+    "--since", default=None, help="Only include items on/after this date (YYYY-MM-DD)"
+)
+@click.option(
+    "--until", default=None, help="Only include items on/before this date (YYYY-MM-DD)"
+)
+@click.option(
+    "--max-items",
+    type=int,
+    default=None,
+    help="Per-type cap. If omitted, download everything",
+)
+@click.option(
+    "--concurrency",
+    type=int,
+    default=8,
+    show_default=True,
+    help="Number of parallel API fetches/downloads",
+)
+@click.option(
+    "--resume/--no-resume",
+    default=True,
+    show_default=True,
+    help="Resume from saved cursors/offsets if present",
+)
+@click.option("--api-version", default=None, help="Override VK API version")
+@click.option("--dry-run", is_flag=True, help="Print plan only; no network or writes")
+@click.pass_context
+def download(
+    ctx: click.Context,
+    group: str,
+    types: str,
+    output: str,
+    since: str | None,
+    until: str | None,
+    max_items: int | None,
+    concurrency: int,
+    resume: bool,
+    api_version: str | None,
+    dry_run: bool,
+) -> None:
+    """
+    Download content from a VK community by types.
+
+    Step 1 bootstrapping: only resolves group and prints the execution plan. Actual
+    per-type downloaders will be wired in subsequent steps.
+    """
+    if utils is None:
+        raise click.BadParameter(
+            "Utils not initialized. Please run the main command first."
+        )
+
+    utils_instance = utils
+
+    # Resolve group to canonical info
+    resolved = loop.run_until_complete(utils_instance.resolve_group(group))
+
+    # Derive final base directory using canonical folder name
+    base_dir = Path(output).joinpath(resolved.folder_name)
+
+    plan = {
+        "group_id": resolved.id,
+        "screen_name": resolved.screen_name,
+        "group_title": resolved.name,
+        "folder": str(base_dir),
+        "types": "all"
+        if types.strip().lower() == "all"
+        else [t.strip() for t in types.split(",") if t.strip()],
+        "since": since,
+        "until": until,
+        "max_items": max_items,
+        "concurrency": concurrency,
+        "resume": resume,
+        "api_version": api_version,
+        "dry_run": dry_run,
+    }
+
+    # For bootstrapping step: just print plan
+    click.echo("Download plan:")
+    for key, value in plan.items():
+        click.echo(f"  - {key}: {value}")
+
+
+@click.option(
     "--user-id",
     "-u",
     required=True,

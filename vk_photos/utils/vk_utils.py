@@ -1,5 +1,11 @@
-"""Main VK utilities class that combines authentication, validation, and file operations."""
+"""Main VK utilities class that combines authentication, validation, and file operations.
 
+This module exposes the high-level ``Utils`` facade used throughout the
+application for VK API access, validation, and filesystem helpers. It also
+contains small domain-specific helpers that are closely tied to VK semantics.
+"""
+
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -72,6 +78,90 @@ class Utils:
         # Initialize authentication and rate-limited wrapper
         self._authenticator.auth_by_token()
         return self._authenticator.vk
+
+    # ------------------------------------------------------------
+    # Group resolution helpers
+    # ------------------------------------------------------------
+
+    @dataclass(frozen=True)
+    class ResolvedGroup:
+        """Resolved group descriptor.
+
+        Attributes:
+            id: Numeric group ID
+            screen_name: Group screen name (may be empty if not available)
+            name: Original group title as returned by VK
+            sanitized_name: Group title sanitized for filesystem usage
+            folder_name: Canonical folder name following "<group-id>-<group-title>"
+        """
+
+        id: int
+        screen_name: str
+        name: str
+        sanitized_name: str
+        folder_name: str
+
+    @staticmethod
+    def _sanitize_title_for_fs(title: str) -> str:
+        """Sanitize a title for safe filesystem usage.
+
+        Replaces characters that commonly cause path issues and trims whitespace.
+
+        Args:
+            title: Raw title string
+
+        Returns:
+            Sanitized title string safe for use in file and directory names
+        """
+        return (
+            title.replace("/", " ")
+            .replace("|", " ")
+            .replace("\\", " ")
+            .replace(":", " ")
+            .replace("*", " ")
+            .replace("?", " ")
+            .replace('"', " ")
+            .replace("<", " ")
+            .replace(">", " ")
+            .replace(".", " ")
+            .strip()
+        )
+
+    async def resolve_group(self, group: str) -> "Utils.ResolvedGroup":
+        """Resolve a group identifier (numeric ID or screen name) to canonical info.
+
+        Uses ``groups.getById`` to resolve either a numeric group ID (without
+        leading minus) or a screen name. Returns the numeric ID, screen name
+        (when available), the raw and sanitized titles, and the canonical folder
+        name in the format "<group-id>-<group-title>" per the project convention
+        [[memory:5669332]].
+
+        Args:
+            group: Group numeric id as string or screen name
+
+        Returns:
+            ResolvedGroup: Structured group information suitable for storage layout
+
+        Raises:
+            Exception: Propagates VK API errors to the caller to handle uniformly
+        """
+        # Request screen_name field explicitly to ensure availability
+        group_info_list = await self.vk.call(
+            "groups.getById", group_id=group, fields="screen_name"
+        )
+        group_info = group_info_list[0]
+        group_id = int(group_info["id"])
+        name = str(group_info.get("name", ""))
+        screen_name = str(group_info.get("screen_name", ""))
+        sanitized = self._sanitize_title_for_fs(name)
+        folder_name = f"{group_id}-{sanitized}"
+        return Utils.ResolvedGroup(
+            id=group_id,
+            screen_name=screen_name,
+            name=name,
+            sanitized_name=sanitized,
+            folder_name=folder_name,
+        )
 
     async def check_user_id(self, id: str) -> bool:
         """
