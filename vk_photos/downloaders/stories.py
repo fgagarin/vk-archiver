@@ -76,6 +76,7 @@ class StoriesDownloader:
         utils: Utils,
         base_dir: Path,
         group_id: int,
+        concurrency: int,
     ) -> None:
         """Initialize the stories downloader.
 
@@ -92,6 +93,7 @@ class StoriesDownloader:
         self._stories_dir = self._base_dir.joinpath("stories")
         self._files_dir = self._stories_dir.joinpath("files")
         self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
+        self._concurrency = max(1, int(concurrency))
 
     def _collect_media_jobs(self, payload: dict[str, Any]) -> list[tuple[str, Path]]:
         jobs: list[tuple[str, Path]] = []
@@ -147,11 +149,17 @@ class StoriesDownloader:
             return
 
         async with aiohttp.ClientSession() as session:
+            sem = asyncio.Semaphore(self._concurrency)
             tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
             for url, target in jobs:
                 if target.exists():
                     continue
-                tasks.append(self._download_direct(session, url, target))
+
+                async def _bounded(url: str = url, target: Path = target) -> None:
+                    async with sem:
+                        await self._download_direct(session, url, target)
+
+                tasks.append(_bounded())
             for t in asyncio.as_completed(tasks):
                 await t
 

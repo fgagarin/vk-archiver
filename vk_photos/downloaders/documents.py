@@ -72,6 +72,7 @@ class DocumentsDownloader:
         base_dir: Path,
         group_id: int,
         max_items: int | None,
+        concurrency: int,
     ) -> None:
         """Initialize the documents downloader.
 
@@ -90,6 +91,7 @@ class DocumentsDownloader:
         self._docs_dir = self._base_dir.joinpath("documents")
         self._files_dir = self._docs_dir.joinpath("files")
         self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
+        self._concurrency = max(1, int(concurrency))
 
     async def _fetch_all_docs(self) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
@@ -143,6 +145,7 @@ class DocumentsDownloader:
 
         # Download files when url is present
         async with aiohttp.ClientSession() as session:
+            sem = asyncio.Semaphore(self._concurrency)
             tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
             for d in docs:
                 url = d.get("url")
@@ -155,7 +158,12 @@ class DocumentsDownloader:
                 target = self._files_dir.joinpath(filename)
                 if target.exists():
                     continue
-                tasks.append(self._download_direct(session, url, target))
+
+                async def _bounded(url: str = url, target: Path = target) -> None:
+                    async with sem:
+                        await self._download_direct(session, url, target)
+
+                tasks.append(_bounded())
 
             for t in asyncio.as_completed(tasks):
                 await t

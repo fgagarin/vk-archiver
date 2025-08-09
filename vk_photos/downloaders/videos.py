@@ -61,6 +61,7 @@ class VideosDownloader:
         base_dir: Path,
         group_id: int,
         max_items: int | None,
+        concurrency: int,
     ) -> None:
         self._vk = vk
         self._utils = utils
@@ -70,6 +71,7 @@ class VideosDownloader:
         self._videos_dir = self._base_dir.joinpath("videos")
         self._files_dir = self._videos_dir.joinpath("files")
         self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
+        self._concurrency = max(1, int(concurrency))
 
     async def _fetch_all_videos(self) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
@@ -137,11 +139,17 @@ class VideosDownloader:
 
         # Run direct downloads
         async with aiohttp.ClientSession() as session:
+            sem = asyncio.Semaphore(self._concurrency)
             tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
             for url, path in direct_downloads:
                 if path.exists():
                     continue
-                tasks.append(self._download_direct(session, url, path))
+
+                async def _bounded(url: str = url, target: Path = path) -> None:
+                    async with sem:
+                        await self._download_direct(session, url, target)
+
+                tasks.append(_bounded())
             for t in asyncio.as_completed(tasks):
                 await t
 

@@ -70,6 +70,7 @@ class PhotosDownloader:
         base_dir: Path,
         group_id: int,
         max_items: int | None,
+        concurrency: int,
     ) -> None:
         self._vk = vk
         self._utils = utils
@@ -78,6 +79,7 @@ class PhotosDownloader:
         self._params = PhotosRunParams(max_items=max_items)
         self._photos_root = self._base_dir.joinpath("photos")
         self._state = TypeStateStore(self._base_dir.joinpath("state.json"))
+        self._concurrency = max(1, int(concurrency))
 
     async def _fetch_all_albums(self) -> list[dict[str, Any]]:
         albums: list[dict[str, Any]] = []
@@ -164,6 +166,7 @@ class PhotosDownloader:
 
             # Download concurrently with aiohttp and our naming convention
             async with aiohttp.ClientSession() as session:
+                sem = asyncio.Semaphore(self._concurrency)
                 tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
                 for p in items:
                     sizes = p.get("sizes") or []
@@ -181,7 +184,16 @@ class PhotosDownloader:
                     if target.exists():
                         continue
 
-                    tasks.append(download_photo(session, url, target))
+                    async def _bounded(
+                        url: str = url,
+                        target: Path = target,
+                        sem: asyncio.Semaphore = sem,
+                        session: aiohttp.ClientSession = session,
+                    ) -> None:
+                        async with sem:
+                            await download_photo(session, url, target)
+
+                    tasks.append(_bounded())
 
                 # Execute
                 processed = 0

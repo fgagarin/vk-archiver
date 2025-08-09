@@ -382,6 +382,7 @@ def download(
                 base_dir=base_dir,
                 group_id=resolved.id,
                 max_items=max_items,
+                concurrency=concurrency,
             )
             loop.run_until_complete(photos.run())
 
@@ -398,6 +399,7 @@ def download(
                 base_dir=base_dir,
                 group_id=resolved.id,
                 max_items=max_items,
+                concurrency=concurrency,
             )
             loop.run_until_complete(videos.run())
 
@@ -413,6 +415,7 @@ def download(
                 utils=utils_instance,
                 base_dir=base_dir,
                 group_id=resolved.id,
+                concurrency=concurrency,
             )
             loop.run_until_complete(stories.run())
 
@@ -429,6 +432,7 @@ def download(
                 base_dir=base_dir,
                 group_id=resolved.id,
                 max_items=max_items,
+                concurrency=concurrency,
             )
             loop.run_until_complete(docs.run())
 
