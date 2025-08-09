@@ -144,77 +144,62 @@ class VideosDownloader:
         videos = await self._fetch_all_videos()
         FileOperations.write_yaml(self._videos_dir.joinpath("videos.yaml"), videos)
 
-        # Prepare download tasks: prefer 'files' entry else 'player' with yt-dlp
-        direct_downloads: list[tuple[str, Path]] = []
+        # Build yt-dlp jobs for all videos to avoid HTTP 400 on direct links
         ytdlp_jobs: list[dict[str, Any]] = []
         for vid in videos:
             vid_id = int(vid.get("id"))
             owner_id = int(vid.get("owner_id"))
             target = self._files_dir.joinpath(f"{vid_id}.mp4")
-            files_url = _select_best_video_file(vid.get("files") or {})
-            if files_url:
-                direct_downloads.append((files_url, target))
+            url: str | None = None
+            player = vid.get("player")
+            if isinstance(player, str) and player:
+                url = player
             else:
-                player = vid.get("player")
-                if isinstance(player, str) and player:
-                    ytdlp_jobs.append(
-                        {"owner_id": owner_id, "id": vid_id, "player": player}
-                    )
+                url = f"https://vk.com/video{owner_id}_{vid_id}"
+            if url:
+                ytdlp_jobs.append({"id": vid_id, "url": url, "target": target})
 
-        # Run direct downloads
-        async with aiohttp.ClientSession() as session:
-            sem = asyncio.Semaphore(self._concurrency)
-            tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
-            pbar_direct = tqdm(
-                total=len(direct_downloads), desc="Videos (direct)", unit="file"
-            )
-            for url, path in direct_downloads:
-                if path.exists():
-                    pbar_direct.update(1)
-                    continue
+        # Run yt-dlp downloads with bounded concurrency and progress
+        pbar_all = tqdm(total=len(ytdlp_jobs), desc="Videos", unit="file")
+        sem = asyncio.Semaphore(self._concurrency)
 
-                async def _bounded(url: str = url, target: Path = path) -> None:
-                    async with sem:
-                        await self._download_direct(session, url, target)
-
-                tasks.append(_bounded())
-            for t in asyncio.as_completed(tasks):
-                await t
-                pbar_direct.update(1)
-            pbar_direct.close()
-
-        # Run yt-dlp downloads (sequential via helper for now)
-        pbar_player = tqdm(total=len(ytdlp_jobs), desc="Videos (player)", unit="file")
-        for job in ytdlp_jobs:
-            target = self._files_dir.joinpath(f"{job['id']}.mp4")
+        async def _dl(job: dict[str, Any]) -> None:
+            target: Path = job["target"]
+            url: str = job["url"]
             if target.exists():
-                pbar_player.update(1)
-                continue
+                pbar_all.update(1)
+                return
             marker = target.parent.joinpath(f"{target.name}_error.txt")
-            try:
-                await download_video(target, job["player"])  # uses retries internally
-                # If success, remove any existing error marker
+            async with sem:
                 try:
-                    if marker.exists():
-                        marker.unlink()
-                except Exception:  # noqa: BLE001
-                    pass
-            except Exception as exc:  # noqa: BLE001
-                message = f"yt-dlp error while downloading {job['player']}: {exc}"
-                FileOperations.atomic_write_bytes(marker, message.encode("utf-8"))
-            pbar_player.update(1)
-        pbar_player.close()
+                    await download_video(target, url)
+                    # On success remove marker
+                    try:
+                        if marker.exists():
+                            marker.unlink()
+                    except Exception:  # noqa: BLE001
+                        pass
+                except Exception as exc:  # noqa: BLE001
+                    message = f"yt-dlp error while downloading {url}: {exc}"
+                    FileOperations.atomic_write_bytes(marker, message.encode("utf-8"))
+                finally:
+                    pbar_all.update(1)
+
+        tasks = [_dl(job) for job in ytdlp_jobs]
+        for t in asyncio.as_completed(tasks):
+            await t
+        pbar_all.close()
 
         logger.info(
             "Saved %d videos metadata and downloaded %d direct files, %d via player",
             len(videos),
-            len(direct_downloads),
+            0,
             len(ytdlp_jobs),
         )
         return {
             "type": "videos",
             "items": len(videos),
-            "direct_downloads": len(direct_downloads),
+            "direct_downloads": 0,
             "player_downloads": len(ytdlp_jobs),
             "failures": 0,
         }
