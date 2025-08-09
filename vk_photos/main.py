@@ -13,6 +13,7 @@ from .downloaders import (
     GroupAlbumsDownloader,
     GroupPhotoDownloader,
     GroupsPhotoDownloader,
+    MetadataDownloader,
     UserPhotoDownloader,
     UsersPhotoDownloader,
 )
@@ -312,7 +313,40 @@ def download(
         "dry_run": dry_run,
     }
 
-    # For bootstrapping step: just print plan
+    # For step 3: if metadata type is requested (or all), fetch and persist it
+    selected_types = plan["types"]
+    if selected_types == "all" or "metadata" in selected_types:
+        from .downloaders.metadata import MetadataRunConfig
+
+        run_cfg = MetadataRunConfig(
+            group_id=resolved.id,
+            screen_name=resolved.screen_name,
+            types=selected_types,
+            output_dir=str(output),
+            since=since,
+            until=until,
+            max_items=max_items,
+            concurrency=concurrency,
+            resume=resume,
+            api_version=api_version,
+        )
+
+        if dry_run:
+            click.echo(
+                "[dry-run] Would download community metadata and write meta files"
+            )
+        else:
+            downloader = MetadataDownloader(
+                vk=utils_instance.vk,
+                utils=utils_instance,
+                base_dir=base_dir,
+                group_id=resolved.id,
+                screen_name=resolved.screen_name,
+                run_config=run_cfg,
+            )
+            loop.run_until_complete(downloader.run())
+
+    # Always print the execution plan at the end for visibility
     click.echo("Download plan:")
     for key, value in plan.items():
         click.echo(f"  - {key}: {value}")

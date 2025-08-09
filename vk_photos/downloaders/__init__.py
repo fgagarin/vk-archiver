@@ -6,6 +6,7 @@ from .chat import (
     ChatUserPhotoDownloader,
 )
 from .group import GroupAlbumsDownloader, GroupPhotoDownloader, GroupsPhotoDownloader
+from .metadata import MetadataDownloader
 from .user import UserPhotoDownloader, UsersPhotoDownloader
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "GroupAlbumsDownloader",
     "GroupPhotoDownloader",
     "GroupsPhotoDownloader",
+    "MetadataDownloader",
     "UserPhotoDownloader",
     "UsersPhotoDownloader",
 ]
