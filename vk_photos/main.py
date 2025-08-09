@@ -15,6 +15,7 @@ from .downloaders import (
     GroupsPhotoDownloader,
     MetadataDownloader,
     PhotosDownloader,
+    StoriesDownloader,
     UserPhotoDownloader,
     UsersPhotoDownloader,
     VideosDownloader,
@@ -399,6 +400,21 @@ def download(
                 max_items=max_items,
             )
             loop.run_until_complete(videos.run())
+
+    # Stories after documents
+    if selected_types == "all" or "stories" in selected_types:
+        if dry_run:
+            click.echo(
+                "[dry-run] Would download stories metadata and files when available"
+            )
+        else:
+            stories = StoriesDownloader(
+                vk=utils_instance.vk,
+                utils=utils_instance,
+                base_dir=base_dir,
+                group_id=resolved.id,
+            )
+            loop.run_until_complete(stories.run())
 
     # Documents after videos
     if selected_types == "all" or "documents" in selected_types:
