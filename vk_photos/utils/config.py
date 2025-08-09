@@ -1,5 +1,6 @@
 """Configuration management utilities."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,11 @@ class ConfigManager:
         """
         with open(self._config_path, encoding="utf-8") as yml_file:
             self._config = yaml.load(yml_file.read(), Loader=yaml.Loader)
+
+        # Allow environment variable VK_TOKEN to override config token
+        env_token = os.getenv("VK_TOKEN")
+        if env_token:
+            self._config["token"] = env_token
 
     def get_config(self) -> dict[str, Any]:
         """

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
+from dotenv import load_dotenv
 
 from .downloaders import (
     ChatMembersPhotoDownloader,
@@ -33,6 +34,9 @@ BASE_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 CONFIG_PATH = BASE_DIR.joinpath("config.yaml")
 VK_CONFIG_PATH = BASE_DIR.joinpath("vk_config.v2.json")
+
+# Load environment variables from .env before anything else uses envvars
+load_dotenv()
 
 # Set up centralized logging
 logger = setup_logging(level=logging.INFO)
