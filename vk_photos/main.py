@@ -319,6 +319,8 @@ def download(
 
     # For step 3: if metadata type is requested (or all), fetch and persist it
     selected_types = plan["types"]
+    summaries: list[dict[str, object]] = []
+
     if selected_types == "all" or "metadata" in selected_types:
         from .downloaders.metadata import MetadataRunConfig
 
@@ -348,7 +350,7 @@ def download(
                 screen_name=resolved.screen_name,
                 run_config=run_cfg,
             )
-            loop.run_until_complete(downloader.run())
+            summaries.append(loop.run_until_complete(downloader.run()))
 
     # Always print the execution plan at the end for visibility
     click.echo("Download plan:")
@@ -369,7 +371,7 @@ def download(
                 until=until,
                 max_items=max_items,
             )
-            loop.run_until_complete(wall.run())
+            summaries.append(loop.run_until_complete(wall.run()))
 
     # Photos (albums and photos) after wall
     if selected_types == "all" or "photos" in selected_types:
@@ -384,7 +386,7 @@ def download(
                 max_items=max_items,
                 concurrency=concurrency,
             )
-            loop.run_until_complete(photos.run())
+            summaries.append(loop.run_until_complete(photos.run()))
 
     # Videos after photos
     if selected_types == "all" or "videos" in selected_types:
@@ -401,7 +403,7 @@ def download(
                 max_items=max_items,
                 concurrency=concurrency,
             )
-            loop.run_until_complete(videos.run())
+            summaries.append(loop.run_until_complete(videos.run()))
 
     # Stories after documents
     if selected_types == "all" or "stories" in selected_types:
@@ -417,7 +419,7 @@ def download(
                 group_id=resolved.id,
                 concurrency=concurrency,
             )
-            loop.run_until_complete(stories.run())
+            summaries.append(loop.run_until_complete(stories.run()))
 
     # Documents after videos
     if selected_types == "all" or "documents" in selected_types:
@@ -434,7 +436,13 @@ def download(
                 max_items=max_items,
                 concurrency=concurrency,
             )
-            loop.run_until_complete(docs.run())
+            summaries.append(loop.run_until_complete(docs.run()))
+
+    # Emit a simple summary report
+    if summaries:
+        click.echo("Summary:")
+        for s in summaries:
+            click.echo(f"  - {s}")
 
 
 @click.option(

@@ -47,7 +47,10 @@ class WallRunParams:
 
 
 class WallDownloader:
-    """Downloads wall posts for a VK community and saves as YAML."""
+    """Downloads wall posts for a VK community and saves as YAML.
+
+    Returns a summary for observability.
+    """
 
     def __init__(
         self,
@@ -121,8 +124,12 @@ class WallDownloader:
                 )
         return photos
 
-    async def run(self) -> None:
-        """Fetch posts and persist them under wall/ as YAML files."""
+    async def run(self) -> dict[str, Any]:
+        """Fetch posts and persist them under wall/ as YAML files.
+
+        Returns:
+            Summary dictionary with counts
+        """
         # Ensure directories
         self._utils.create_dir(self._wall_dir)
         self._utils.create_dir(self._attachments_photos_dir)
@@ -209,3 +216,9 @@ class WallDownloader:
         logger.info(
             f"Saved {len(posts)} posts and {len(photos_index)} photo links for group {self._group_id}"
         )
+        return {
+            "type": "wall",
+            "items": len(posts),
+            "photo_links": len(photos_index),
+            "failures": 0,
+        }

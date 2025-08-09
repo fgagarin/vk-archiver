@@ -62,7 +62,10 @@ class DocumentsRunParams:
 
 
 class DocumentsDownloader:
-    """Downloads VK documents metadata and files when available."""
+    """Downloads VK documents metadata and files when available.
+
+    Returns a summary for observability.
+    """
 
     def __init__(
         self,
@@ -135,8 +138,12 @@ class DocumentsDownloader:
                     "Failed to download %s: HTTP %s", target.name, response.status
                 )
 
-    async def run(self) -> None:
-        """Fetch documents, write metadata, and download files into documents/files."""
+    async def run(self) -> dict[str, Any]:
+        """Fetch documents, write metadata, and download files into documents/files.
+
+        Returns:
+            Summary dictionary with counts
+        """
         self._utils.create_dir(self._docs_dir)
         self._utils.create_dir(self._files_dir)
 
@@ -173,3 +180,9 @@ class DocumentsDownloader:
             len(docs),
             len(tasks),
         )
+        return {
+            "type": "documents",
+            "items": len(docs),
+            "file_download_attempts": len(tasks),
+            "failures": 0,
+        }

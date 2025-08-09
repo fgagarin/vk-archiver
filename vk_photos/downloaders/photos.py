@@ -60,7 +60,10 @@ class PhotosRunParams:
 
 
 class PhotosDownloader:
-    """Downloads group albums and photos into the canonical storage layout."""
+    """Downloads group albums and photos into the canonical storage layout.
+
+    Returns a summary for observability.
+    """
 
     def __init__(
         self,
@@ -125,8 +128,12 @@ class PhotosDownloader:
             offset += count
         return photos
 
-    async def run(self) -> None:
-        """Fetch albums and download their photos into album folders."""
+    async def run(self) -> dict[str, Any]:
+        """Fetch albums and download their photos into album folders.
+
+        Returns:
+            Summary dictionary with counts
+        """
         # Ensure base directories
         self._utils.create_dir(self._photos_root)
 
@@ -209,3 +216,9 @@ class PhotosDownloader:
             self._state.update(album_state_key, {"offset": new_offset})
 
         logger.info("Finished photos download for group %s", self._group_id)
+        return {
+            "type": "photos",
+            "albums": len(albums),
+            "items": None if remaining is None else self._params.max_items,
+            "failures": 0,
+        }

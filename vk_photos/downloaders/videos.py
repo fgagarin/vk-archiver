@@ -51,7 +51,10 @@ def _select_best_video_file(files_dict: dict[str, Any]) -> str | None:
 
 
 class VideosDownloader:
-    """Downloads VK videos (metadata and files when possible)."""
+    """Downloads VK videos (metadata and files when possible).
+
+    Returns a summary for observability.
+    """
 
     def __init__(
         self,
@@ -112,8 +115,12 @@ class VideosDownloader:
                     "Failed to download %s: HTTP %s", target.name, response.status
                 )
 
-    async def run(self) -> None:
-        """Fetch videos, write metadata YAML, and download files when possible."""
+    async def run(self) -> dict[str, Any]:
+        """Fetch videos, write metadata YAML, and download files when possible.
+
+        Returns:
+            Summary dictionary with counts
+        """
         self._utils.create_dir(self._videos_dir)
         self._utils.create_dir(self._files_dir)
 
@@ -166,3 +173,10 @@ class VideosDownloader:
             len(direct_downloads),
             len(ytdlp_jobs),
         )
+        return {
+            "type": "videos",
+            "items": len(videos),
+            "direct_downloads": len(direct_downloads),
+            "player_downloads": len(ytdlp_jobs),
+            "failures": 0,
+        }

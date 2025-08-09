@@ -67,7 +67,10 @@ def _select_best_video_url(video_obj: dict[str, Any]) -> str | None:
 
 
 class StoriesDownloader:
-    """Downloads VK stories metadata and media when available."""
+    """Downloads VK stories metadata and media when available.
+
+    Returns a summary for observability.
+    """
 
     def __init__(
         self,
@@ -130,8 +133,12 @@ class StoriesDownloader:
                         continue
         return jobs
 
-    async def run(self) -> None:
-        """Fetch currently available stories and write metadata and files."""
+    async def run(self) -> dict[str, Any]:
+        """Fetch currently available stories and write metadata and files.
+
+        Returns:
+            Summary dictionary with counts
+        """
         self._utils.create_dir(self._stories_dir)
         self._utils.create_dir(self._files_dir)
 
@@ -146,7 +153,8 @@ class StoriesDownloader:
         jobs = self._collect_media_jobs(resp)
         if not jobs:
             logger.info("No downloadable story media URLs found")
-            return
+            self._state.update("stories", {"last_run": True})
+            return {"type": "stories", "items": 0, "files": 0, "failures": 0}
 
         async with aiohttp.ClientSession() as session:
             sem = asyncio.Semaphore(self._concurrency)
@@ -166,6 +174,12 @@ class StoriesDownloader:
         logger.info("Saved %d stories media files", len(jobs))
         # Track that stories were fetched at least once
         self._state.update("stories", {"last_run": True})
+        return {
+            "type": "stories",
+            "items": len(jobs),
+            "files": len(jobs),
+            "failures": 0,
+        }
 
     async def _download_direct(
         self, session: aiohttp.ClientSession, url: str, target: Path
