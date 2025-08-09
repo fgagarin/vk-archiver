@@ -400,6 +400,22 @@ def download(
             )
             loop.run_until_complete(videos.run())
 
+    # Documents after videos
+    if selected_types == "all" or "documents" in selected_types:
+        if dry_run:
+            click.echo("[dry-run] Would download documents metadata and files")
+        else:
+            from .downloaders import DocumentsDownloader as _Docs
+
+            docs = _Docs(
+                vk=utils_instance.vk,
+                utils=utils_instance,
+                base_dir=base_dir,
+                group_id=resolved.id,
+                max_items=max_items,
+            )
+            loop.run_until_complete(docs.run())
+
 
 @click.option(
     "--user-id",
