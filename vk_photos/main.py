@@ -16,8 +16,6 @@ from .downloaders import (
     UserPhotoDownloader,
     UsersPhotoDownloader,
 )
-from .downloaders.chat import set_utils_instance as set_chat_utils_instance
-from .downloaders.user import set_utils_instance
 from .utils import Utils
 from .utils.exceptions import (
     APIError,
@@ -156,7 +154,7 @@ class CLIParameterValidator:
 
 
 # Global utils instance - will be initialized with rate limit in main function
-utils = None  # type: ignore
+utils: Utils | None = None
 
 
 @click.group()
@@ -206,10 +204,6 @@ def main(
 
     # Initialize utils instance with rate limit
     utils = Utils(CONFIG_PATH, rate_limit)
-
-    # Initialize utils instance in downloaders
-    set_utils_instance(utils)
-    set_chat_utils_instance(utils)
 
     # Create downloads directory
     utils.create_dir(ctx.obj["output_dir"])
@@ -266,7 +260,10 @@ def user(ctx: click.Context, user_id: str) -> None:
 
     vk = utils_instance.auth_by_token()
     downloader = UserPhotoDownloader(
-        user_id=validated_user_id, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
+        user_id=validated_user_id,
+        vk_instance=vk,
+        utils=utils_instance,
+        parent_dir=ctx.obj["output_dir"],
     )
     loop.run_until_complete(downloader.main())
 
@@ -310,7 +307,10 @@ def users(ctx: click.Context, user_ids: str) -> None:
 
     vk = utils.auth_by_token()
     downloader = UsersPhotoDownloader(
-        user_ids=user_id_list, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
+        user_ids=user_id_list,
+        vk_instance=vk,
+        utils=utils,
+        parent_dir=ctx.obj["output_dir"],
     )
     loop.run_until_complete(downloader.main())
 
@@ -355,7 +355,9 @@ def group(ctx: click.Context, group_id: str) -> None:
         raise click.BadParameter(f"Failed to validate group: {e}") from e
 
     vk = utils.auth_by_token()
-    downloader = GroupPhotoDownloader(group_id=validated_group_id, vk_instance=vk)
+    downloader = GroupPhotoDownloader(
+        group_id=validated_group_id, vk_instance=vk, utils=utils
+    )
     loop.run_until_complete(downloader.main(ctx.obj["download_videos"]))
 
 
@@ -399,7 +401,7 @@ def groups(ctx: click.Context, group_ids: str) -> None:
 
     vk = utils.auth_by_token()
     downloader = GroupsPhotoDownloader(
-        group_ids=",".join(group_id_list), vk_instance=vk
+        group_ids=",".join(group_id_list), vk_instance=vk, utils=utils
     )
     loop.run_until_complete(downloader.main(ctx.obj["download_videos"]))
 
@@ -444,7 +446,9 @@ def chat_members(ctx: click.Context, chat_id: str) -> None:
         raise click.BadParameter(f"Failed to validate chat: {e}") from e
 
     vk = utils.auth_by_token()
-    downloader = ChatMembersPhotoDownloader(chat_id=validated_chat_id, vk_instance=vk)
+    downloader = ChatMembersPhotoDownloader(
+        chat_id=validated_chat_id, vk_instance=vk, utils=utils
+    )
     loop.run_until_complete(downloader.main())
 
 
@@ -488,7 +492,9 @@ def chat_attachments(ctx: click.Context, chat_id: str) -> None:
         raise click.BadParameter(f"Failed to validate chat: {e}") from e
 
     vk = utils.auth_by_token()
-    downloader = ChatPhotoDownloader(chat_id=validated_chat_id, vk_instance=vk)
+    downloader = ChatPhotoDownloader(
+        chat_id=validated_chat_id, vk_instance=vk, utils=utils
+    )
     loop.run_until_complete(downloader.main())
 
 
@@ -533,7 +539,10 @@ def user_chat(ctx: click.Context, user_id: str) -> None:
 
     vk = utils.auth_by_token()
     downloader = ChatUserPhotoDownloader(
-        chat_id=validated_user_id, vk_instance=vk, parent_dir=ctx.obj["output_dir"]
+        chat_id=validated_user_id,
+        vk_instance=vk,
+        utils=utils,
+        parent_dir=ctx.obj["output_dir"],
     )
     loop.run_until_complete(downloader.main())
 
@@ -578,7 +587,9 @@ def group_albums(ctx: click.Context, group_id: str) -> None:
         raise click.BadParameter(f"Failed to validate group: {e}") from e
 
     vk = utils.auth_by_token()
-    downloader = GroupAlbumsDownloader(group_id=validated_group_id, vk_instance=vk)
+    downloader = GroupAlbumsDownloader(
+        group_id=validated_group_id, vk_instance=vk, utils=utils
+    )
     loop.run_until_complete(downloader.main())
 
 

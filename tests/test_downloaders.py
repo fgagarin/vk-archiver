@@ -52,16 +52,19 @@ async def test_user_downloader_builds_paths_and_invokes_download(
     # Mock vk instance wrapper
     vk_instance = DummyVK()
 
-    # Patch global utils in module under test
-    from vk_photos.downloaders import user as user_mod
-
-    user_mod.utils = DummyUtils()
+    # Create utils instance to inject
+    utils = DummyUtils()
 
     # Spy on download_photos
+    # Spy on module-level function used by downloader
+    from vk_photos.downloaders import user as user_mod
+
     download_spy = mocker.spy(user_mod, "download_photos")
 
     # Act
-    downloader = UserPhotoDownloader("123", vk_instance, parent_dir=tmp_path)
+    downloader = UserPhotoDownloader(
+        "123", vk_instance, utils=utils, parent_dir=tmp_path
+    )
     await downloader.main()
 
     # Assert

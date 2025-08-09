@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..functions import decline, download_photos
-from ..utils.exceptions import InitializationError
 from ..utils.logging_config import get_logger
 from ..utils.rate_limiter import RateLimitedVKAPI
 
@@ -18,20 +17,6 @@ if TYPE_CHECKING:
 # Global constants
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 
-# Global utils instance - will be imported from main
-utils: "Utils | None" = None
-
-
-def set_utils_instance(utils_instance: "Utils") -> None:
-    """
-    Set the global utils instance.
-
-    Args:
-        utils_instance: Utils instance to set globally
-    """
-    global utils
-    utils = utils_instance
-
 
 class UserPhotoDownloader:
     """Downloader for photos from a single VK user profile."""
@@ -40,6 +25,7 @@ class UserPhotoDownloader:
         self,
         user_id: str,
         vk_instance: RateLimitedVKAPI,
+        utils: "Utils",
         parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """
@@ -48,11 +34,13 @@ class UserPhotoDownloader:
         Args:
             user_id: VK user ID to download photos from
             vk_instance: VK API instance
+            utils: Utils helper providing VK auth/validation and file operations
             parent_dir: Parent directory for downloads
         """
         self.user_id = user_id
         self.vk = vk_instance
         self.parent_dir = parent_dir
+        self.utils = utils
 
     async def get_photos(self) -> list[dict[str, Any]]:
         """
@@ -222,15 +210,10 @@ class UserPhotoDownloader:
             sex=user_info["sex"],
         )
 
-        if utils is None:
-            raise InitializationError(
-                "Utils instance not initialized", component="UserPhotoDownloader"
-            )
-
-        username = await utils.get_username(str(self.user_id))
+        username = await self.utils.get_username(str(self.user_id))
 
         photos_path = self.parent_dir.joinpath(username)
-        utils.create_dir(photos_path)
+        self.utils.create_dir(photos_path)
 
         # User page is deleted
         if "deactivated" in user_info:
@@ -282,6 +265,7 @@ class UsersPhotoDownloader:
         self,
         user_ids: list[str],
         vk_instance: RateLimitedVKAPI,
+        utils: "Utils",
         parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """
@@ -290,11 +274,13 @@ class UsersPhotoDownloader:
         Args:
             user_ids: List of VK user IDs to download photos from
             vk_instance: VK API instance
+            utils: Utils helper providing VK auth/validation and file operations
             parent_dir: Parent directory for downloads
         """
         self.user_ids = list(user_ids)
         self.vk = vk_instance
         self.parent_dir = parent_dir
+        self.utils = utils
 
     async def main(self) -> None:
         """
@@ -309,4 +295,9 @@ class UsersPhotoDownloader:
             the VK API and to provide clear progress tracking.
         """
         for user_id in self.user_ids:
-            await UserPhotoDownloader(user_id, self.vk, self.parent_dir).main()
+            await UserPhotoDownloader(
+                user_id=user_id,
+                vk_instance=self.vk,
+                utils=self.utils,
+                parent_dir=self.parent_dir,
+            ).main()

@@ -17,34 +17,24 @@ logger = get_logger("downloaders.group")
 # Global constants
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 
-# Global utils instance - will be imported from main
-utils: "Utils | None" = None
-
-
-def set_utils_instance(utils_instance: "Utils") -> None:
-    """
-    Set the global utils instance.
-
-    Args:
-        utils_instance: Utils instance to set globally
-    """
-    global utils
-    utils = utils_instance
-
 
 class GroupAlbumsDownloader:
     """Downloader for albums from a VK group."""
 
-    def __init__(self, group_id: str, vk_instance: RateLimitedVKAPI) -> None:
+    def __init__(
+        self, group_id: str, vk_instance: RateLimitedVKAPI, utils: "Utils"
+    ) -> None:
         """
         Initialize GroupAlbumsDownloader.
 
         Args:
             group_id: VK group ID to download albums from
             vk_instance: VK API instance
+            utils: Utils helper providing VK helpers and file operations
         """
         self.group_id = int(group_id)
         self.vk = vk_instance
+        self.utils = utils
 
     async def main(self) -> None:
         """
@@ -72,8 +62,7 @@ class GroupAlbumsDownloader:
         )
 
         group_dir = DOWNLOADS_DIR.joinpath(group_name)
-        if utils is not None:
-            utils.create_dir(group_dir)
+        self.utils.create_dir(group_dir)
         dump(group_info, group_dir.joinpath("info.yaml"))
 
         albums_resp = await self.vk.call("photos.getAlbums", owner_id=-self.group_id)
@@ -82,9 +71,8 @@ class GroupAlbumsDownloader:
         for album in albums:
             aid = album["id"]
             album_name = album["title"]
-            album_dir = group_dir.joinpath(album_name)
-            if utils is not None:
-                utils.create_dir(album_dir)
+            album_dir = group_dir.joinpath(f"{aid}-{album_name}")
+            self.utils.create_dir(album_dir)
             dump(album, album_dir.joinpath("info.yaml"))
 
             photos: list[dict[str, Any]] = []
@@ -122,16 +110,20 @@ class GroupAlbumsDownloader:
 class GroupPhotoDownloader:
     """Downloader for photos from a single VK group wall."""
 
-    def __init__(self, group_id: str, vk_instance: RateLimitedVKAPI) -> None:
+    def __init__(
+        self, group_id: str, vk_instance: RateLimitedVKAPI, utils: "Utils"
+    ) -> None:
         """
         Initialize GroupPhotoDownloader.
 
         Args:
             group_id: VK group ID to download photos from
             vk_instance: VK API instance
+            utils: Utils helper providing VK helpers and file operations
         """
         self.group_id = int(group_id)
         self.vk = vk_instance
+        self.utils = utils
 
     async def get_photos(self, download_videos: str) -> None:
         """
@@ -287,8 +279,7 @@ class GroupPhotoDownloader:
         )
 
         group_dir = DOWNLOADS_DIR.joinpath(group_name)
-        if utils is not None:
-            utils.create_dir(group_dir)
+        self.utils.create_dir(group_dir)
 
         self.photos: list[dict[str, Any]] = []
         self.videos_list: list[dict[str, Any]] = []
@@ -360,16 +351,20 @@ class GroupPhotoDownloader:
 class GroupsPhotoDownloader:
     """Downloader for photos from multiple VK group walls."""
 
-    def __init__(self, group_ids: str, vk_instance: RateLimitedVKAPI) -> None:
+    def __init__(
+        self, group_ids: str, vk_instance: RateLimitedVKAPI, utils: "Utils"
+    ) -> None:
         """
         Initialize GroupsPhotoDownloader.
 
         Args:
             group_ids: Comma-separated string of VK group IDs
             vk_instance: VK API instance
+            utils: Utils helper providing VK helpers and file operations
         """
         self.group_ids = [int(id.strip()) for id in group_ids.split(",")]
         self.vk = vk_instance
+        self.utils = utils
 
     async def get_photos(self, group_id: int, download_videos: str) -> None:
         """
@@ -487,9 +482,10 @@ class GroupsPhotoDownloader:
             download_videos_flag: Whether to also download videos
         """
         groups_name = ", ".join(
-            [await utils.get_group_title(str(group_id)) for group_id in self.group_ids]
-            if utils is not None
-            else []
+            [
+                await self.utils.get_group_title(str(group_id))
+                for group_id in self.group_ids
+            ]
         )
         group_dir = DOWNLOADS_DIR.joinpath(groups_name)
         self.photos: list[dict[str, Any]] = []

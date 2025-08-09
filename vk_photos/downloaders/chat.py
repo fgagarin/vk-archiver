@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 
 from ..filter import check_for_duplicates
 from ..functions import download_photos
-from ..utils.exceptions import InitializationError
 from ..utils.logging_config import get_logger
 from ..utils.rate_limiter import RateLimitedVKAPI
 from .user import UsersPhotoDownloader
@@ -18,34 +17,24 @@ if TYPE_CHECKING:
 # Global constants
 DOWNLOADS_DIR = Path.cwd().joinpath("downloads")
 
-# Global utils instance - will be set by main.py
-utils: "Utils | None" = None
-
-
-def set_utils_instance(utils_instance: "Utils") -> None:
-    """
-    Set the global utils instance.
-
-    Args:
-        utils_instance: Utils instance to set globally
-    """
-    global utils
-    utils = utils_instance
-
 
 class ChatMembersPhotoDownloader:
     """Download photos from chat members."""
 
-    def __init__(self, chat_id: str, vk_instance: RateLimitedVKAPI) -> None:
+    def __init__(
+        self, chat_id: str, vk_instance: RateLimitedVKAPI, utils: "Utils"
+    ) -> None:
         """
         Initialize ChatMembersPhotoDownloader.
 
         Args:
             chat_id: VK chat ID
             vk_instance: Authenticated VK API instance
+            utils: Utils helper providing VK helpers and file operations
         """
         self.chat_id = int(chat_id)
         self.vk = vk_instance
+        self.utils = utils
 
     async def main(self) -> None:
         """
@@ -64,16 +53,11 @@ class ChatMembersPhotoDownloader:
         Note:
             Skips empty chats and provides appropriate logging messages.
         """
-        if utils is None:
-            raise InitializationError(
-                "Utils instance not initialized", component="ChatMembersPhotoDownloader"
-            )
-
-        chat_title = await utils.get_chat_title(str(self.chat_id))
+        chat_title = await self.utils.get_chat_title(str(self.chat_id))
         chat_path = DOWNLOADS_DIR.joinpath(chat_title)
 
         # Create folder for chat members' photos if it doesn't exist
-        utils.create_dir(chat_path)
+        self.utils.create_dir(chat_path)
 
         members_resp = await self.vk.call("messages.getChat", chat_id=self.chat_id)
         members = members_resp["users"]
@@ -88,27 +72,34 @@ class ChatMembersPhotoDownloader:
                 if member_id > 0:
                     members_ids.append(member_id)
 
-            current_uid = await utils.get_user_id()
+            current_uid = await self.utils.get_user_id()
             members_ids.remove(current_uid)
 
             await UsersPhotoDownloader(
-                user_ids=members_ids, vk_instance=self.vk, parent_dir=chat_path
+                user_ids=members_ids,
+                vk_instance=self.vk,
+                utils=self.utils,
+                parent_dir=chat_path,
             ).main()
 
 
 class ChatPhotoDownloader:
     """Download photos from chat attachments."""
 
-    def __init__(self, chat_id: str, vk_instance: RateLimitedVKAPI) -> None:
+    def __init__(
+        self, chat_id: str, vk_instance: RateLimitedVKAPI, utils: "Utils"
+    ) -> None:
         """
         Initialize ChatPhotoDownloader.
 
         Args:
             chat_id: VK chat ID
             vk_instance: Authenticated VK API instance
+            utils: Utils helper providing VK helpers and file operations
         """
         self.chat_id = int(chat_id)
         self.vk = vk_instance
+        self.utils = utils
 
     async def get_attachments(self) -> list[dict[str, Any]]:
         """
@@ -165,12 +156,7 @@ class ChatPhotoDownloader:
             Photos are downloaded concurrently for better performance.
             Duplicate detection is performed after download completion.
         """
-        if utils is None:
-            raise InitializationError(
-                "Utils instance not initialized", component="ChatPhotoDownloader"
-            )
-
-        chat_title = await utils.get_chat_title(str(self.chat_id))
+        chat_title = await self.utils.get_chat_title(str(self.chat_id))
         photos_path = DOWNLOADS_DIR.joinpath(chat_title)
         if not photos_path.exists():
             logger.info(f"Creating folder for chat photos '{chat_title}'")
@@ -210,6 +196,7 @@ class ChatUserPhotoDownloader:
         self,
         chat_id: str,
         vk_instance: RateLimitedVKAPI,
+        utils: "Utils",
         parent_dir: Path = DOWNLOADS_DIR,
     ) -> None:
         """
@@ -218,11 +205,13 @@ class ChatUserPhotoDownloader:
         Args:
             chat_id: VK chat ID (user ID for direct messages)
             vk_instance: Authenticated VK API instance
+            utils: Utils helper providing VK helpers and file operations
             parent_dir: Parent directory for downloads
         """
         self.chat_id = chat_id
         self.parent_dir = parent_dir
         self.vk = vk_instance
+        self.utils = utils
 
     async def get_attachments(self) -> list[dict[str, Any]]:
         """
@@ -277,15 +266,10 @@ class ChatUserPhotoDownloader:
             Photos are downloaded concurrently for better performance.
             Duplicate detection is performed after download completion.
         """
-        if utils is None:
-            raise InitializationError(
-                "Utils instance not initialized", component="ChatUserPhotoDownloader"
-            )
-
-        username = await utils.get_username(self.chat_id)
+        username = await self.utils.get_username(self.chat_id)
 
         photos_path = self.parent_dir.joinpath(f"Chat {username}")
-        utils.create_dir(photos_path)
+        self.utils.create_dir(photos_path)
 
         photos = await self.get_attachments()
 
