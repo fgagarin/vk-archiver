@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from tqdm.asyncio import tqdm
+
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
@@ -144,6 +146,7 @@ class WallDownloader:
         saved = 0
         total_posts: int | None = None
 
+        pbar = None
         while True:
             resp = await self._vk.call(
                 "wall.get",
@@ -154,6 +157,7 @@ class WallDownloader:
             )
             if total_posts is None:
                 total_posts = int(resp.get("count", 0))
+                pbar = tqdm(total=total_posts or None, desc="Wall posts", unit="post")
             items: list[dict[str, Any]] = resp.get("items", [])
 
             if not items:
@@ -186,6 +190,8 @@ class WallDownloader:
                 posts.append(post)
                 photos_index.extend(self._extract_photo_attachments(post))
                 saved += 1
+                if pbar is not None:
+                    pbar.update(1)
                 if (
                     self._params.max_items is not None
                     and saved >= self._params.max_items
@@ -205,6 +211,10 @@ class WallDownloader:
             logger.info(
                 f"Wall pagination: saved={saved}, offset={offset}, total={total_posts}"
             )
+
+        # Close progress bar
+        if pbar is not None:
+            pbar.close()
 
         # Persist posts and attachments index
         FileOperations.write_yaml(self._wall_dir.joinpath("posts.yaml"), posts)

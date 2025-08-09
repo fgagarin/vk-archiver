@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+from tqdm.asyncio import tqdm
 
 from ..functions import download_video
 from ..utils import RateLimitedVKAPI, Utils
@@ -148,6 +149,9 @@ class VideosDownloader:
         async with aiohttp.ClientSession() as session:
             sem = asyncio.Semaphore(self._concurrency)
             tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
+            pbar_direct = tqdm(
+                total=len(direct_downloads), desc="Videos (direct)", unit="file"
+            )
             for url, path in direct_downloads:
                 if path.exists():
                     continue
@@ -159,13 +163,18 @@ class VideosDownloader:
                 tasks.append(_bounded())
             for t in asyncio.as_completed(tasks):
                 await t
+                pbar_direct.update(1)
+            pbar_direct.close()
 
         # Run yt-dlp downloads (sequential via helper for now)
+        pbar_player = tqdm(total=len(ytdlp_jobs), desc="Videos (player)", unit="file")
         for job in ytdlp_jobs:
             target = self._files_dir.joinpath(f"{job['id']}.mp4")
             if target.exists():
                 continue
             await download_video(target, job["player"])  # uses retries internally
+            pbar_player.update(1)
+        pbar_player.close()
 
         logger.info(
             "Saved %d videos metadata and downloaded %d direct files, %d via player",

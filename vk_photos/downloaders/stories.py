@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+from tqdm.asyncio import tqdm
 
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
@@ -159,6 +160,7 @@ class StoriesDownloader:
         async with aiohttp.ClientSession() as session:
             sem = asyncio.Semaphore(self._concurrency)
             tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
+            pbar = tqdm(total=len(jobs), desc="Stories", unit="file")
             for url, target in jobs:
                 if target.exists():
                     continue
@@ -170,6 +172,8 @@ class StoriesDownloader:
                 tasks.append(_bounded())
             for t in asyncio.as_completed(tasks):
                 await t
+                pbar.update(1)
+            pbar.close()
 
         logger.info("Saved %d stories media files", len(jobs))
         # Track that stories were fetched at least once

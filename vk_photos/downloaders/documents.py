@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+from tqdm.asyncio import tqdm
 
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
@@ -154,6 +155,7 @@ class DocumentsDownloader:
         async with aiohttp.ClientSession() as session:
             sem = asyncio.Semaphore(self._concurrency)
             tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
+            pbar = tqdm(total=len(docs), desc="Documents", unit="file")
             for d in docs:
                 url = d.get("url")
                 if not isinstance(url, str) or not url:
@@ -174,6 +176,8 @@ class DocumentsDownloader:
 
             for t in asyncio.as_completed(tasks):
                 await t
+                pbar.update(1)
+            pbar.close()
 
         logger.info(
             "Saved %d documents metadata; attempted %d file downloads",

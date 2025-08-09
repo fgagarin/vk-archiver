@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+from tqdm.asyncio import tqdm
 
 from ..functions import download_photo
 from ..utils import RateLimitedVKAPI, Utils
@@ -145,6 +146,7 @@ class PhotosDownloader:
             self._params.max_items if self._params.max_items is not None else None
         )
 
+        pbar_albums = tqdm(total=len(albums), desc="Albums", unit="album")
         for album in albums:
             if remaining is not None and remaining <= 0:
                 break
@@ -169,6 +171,7 @@ class PhotosDownloader:
             async with aiohttp.ClientSession() as session:
                 sem = asyncio.Semaphore(self._concurrency)
                 tasks: list[asyncio.Task[Any] | asyncio.Future[Any]] = []
+                pbar_photos = tqdm(total=len(items), desc=f"Album {aid}", unit="photo")
                 for p in items:
                     sizes = p.get("sizes") or []
                     if not sizes:
@@ -210,12 +213,17 @@ class PhotosDownloader:
                 # Execute
                 for t in asyncio.as_completed(tasks):
                     await t
+                    pbar_photos.update(1)
+                pbar_photos.close()
 
             if remaining is not None:
                 remaining -= len(items)
 
             # Do not advance per-album offset so failed items can be retried next run
 
+            pbar_albums.update(1)
+
+        pbar_albums.close()
         logger.info("Finished photos download for group %s", self._group_id)
         return {
             "type": "photos",
