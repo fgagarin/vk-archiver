@@ -31,6 +31,7 @@ class RateLimitedVKAPI:
         max_retries: int = 5,
         backoff_base_seconds: float = 0.5,
         backoff_jitter_seconds: float = 0.2,
+        default_timeout_seconds: float = 30.0,
     ) -> None:
         """
         Initialize RateLimitedVKAPI with VK API instance and rate limit.
@@ -46,6 +47,7 @@ class RateLimitedVKAPI:
         self._max_retries = max_retries
         self._backoff_base = backoff_base_seconds
         self._backoff_jitter = backoff_jitter_seconds
+        self._default_timeout = default_timeout_seconds
 
         logger.info(
             f"Initialized rate limiter with {requests_per_second} requests per second"
@@ -125,11 +127,35 @@ class RateLimitedVKAPI:
         Raises:
             Exception: Any exception raised by the VK API call
         """
+        # Optional override for timeout at rate-limiter call-site
+        timeout_seconds = kwargs.pop("_rl_timeout", None)
+        if timeout_seconds is None:
+            timeout_seconds = self._default_timeout
+
         attempt = 0
         while True:
             await self._wait_if_needed()
             try:
-                return self._make_api_call(method_name, *args, **kwargs)
+                return await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._make_api_call, method_name, *args, **kwargs
+                    ),
+                    timeout=timeout_seconds,
+                )
+            except asyncio.TimeoutError:
+                attempt += 1
+                if attempt > self._max_retries:
+                    logger.error(
+                        f"Timeout after {timeout_seconds:.1f}s for VK API call {method_name}; max retries exceeded"
+                    )
+                    raise
+                backoff_seconds = (
+                    2 ** (attempt - 1)
+                ) * self._backoff_base + random.uniform(0, self._backoff_jitter)
+                logger.warning(
+                    f"Timeout on {method_name} after {timeout_seconds:.1f}s; retrying in {backoff_seconds:.2f}s (attempt {attempt}/{self._max_retries})"
+                )
+                await asyncio.sleep(backoff_seconds)
             except Exception as exc:  # noqa: BLE001
                 attempt += 1
                 if attempt > self._max_retries:

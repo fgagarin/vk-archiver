@@ -16,6 +16,7 @@ from .downloaders import (
     MetadataDownloader,
     UserPhotoDownloader,
     UsersPhotoDownloader,
+    WallDownloader,
 )
 from .utils import Utils
 from .utils.exceptions import (
@@ -350,6 +351,22 @@ def download(
     click.echo("Download plan:")
     for key, value in plan.items():
         click.echo(f"  - {key}: {value}")
+
+    # Wall content after metadata (if requested)
+    if selected_types == "all" or "wall" in selected_types:
+        if dry_run:
+            click.echo("[dry-run] Would download wall posts and attachments index")
+        else:
+            wall = WallDownloader(
+                vk=utils_instance.vk,
+                utils=utils_instance,
+                base_dir=base_dir,
+                group_id=resolved.id,
+                since=since,
+                until=until,
+                max_items=max_items,
+            )
+            loop.run_until_complete(wall.run())
 
 
 @click.option(
