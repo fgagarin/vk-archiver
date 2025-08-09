@@ -154,6 +154,7 @@ class VideosDownloader:
             )
             for url, path in direct_downloads:
                 if path.exists():
+                    pbar_direct.update(1)
                     continue
 
                 async def _bounded(url: str = url, target: Path = path) -> None:
@@ -171,6 +172,7 @@ class VideosDownloader:
         for job in ytdlp_jobs:
             target = self._files_dir.joinpath(f"{job['id']}.mp4")
             if target.exists():
+                pbar_player.update(1)
                 continue
             await download_video(target, job["player"])  # uses retries internally
             pbar_player.update(1)

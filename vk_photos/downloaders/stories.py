@@ -163,6 +163,7 @@ class StoriesDownloader:
             pbar = tqdm(total=len(jobs), desc="Stories", unit="file")
             for url, target in jobs:
                 if target.exists():
+                    pbar.update(1)
                     continue
 
                 async def _bounded(url: str = url, target: Path = target) -> None:

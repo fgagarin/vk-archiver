@@ -166,6 +166,7 @@ class DocumentsDownloader:
                 filename = f"{doc_id}_{title}.{ext}"
                 target = self._files_dir.joinpath(filename)
                 if target.exists():
+                    pbar.update(1)
                     continue
 
                 async def _bounded(url: str = url, target: Path = target) -> None:

@@ -186,6 +186,7 @@ class PhotosDownloader:
                     target = album_dir.joinpath(filename)
 
                     if target.exists():
+                        pbar_photos.update(1)
                         continue
 
                     async def _bounded(
