@@ -108,13 +108,29 @@ class VideosDownloader:
     ) -> None:
         if target.exists():
             return
-        async with session.get(url) as response:
-            if response.status == 200:
-                FileOperations.atomic_write_bytes(target, await response.read())
-            else:
-                logger.warning(
-                    "Failed to download %s: HTTP %s", target.name, response.status
-                )
+        marker = target.parent.joinpath(f"{target.name}_error.txt")
+        try:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    FileOperations.atomic_write_bytes(target, await response.read())
+                    # On success, remove any existing error marker
+                    try:
+                        if marker.exists():
+                            marker.unlink()
+                    except Exception:  # noqa: BLE001
+                        pass
+                else:
+                    message = f"HTTP {response.status} while downloading {url}"
+                    logger.warning("Failed to download %s: %s", target.name, message)
+                    FileOperations.atomic_write_bytes(marker, message.encode("utf-8"))
+        except aiohttp.ClientError as exc:
+            message = f"Client error while downloading {url}: {exc}"
+            logger.warning("Failed to download %s: %s", target.name, message)
+            FileOperations.atomic_write_bytes(marker, message.encode("utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            message = f"Unexpected error while downloading {url}: {exc}"
+            logger.warning("Failed to download %s: %s", target.name, message)
+            FileOperations.atomic_write_bytes(marker, message.encode("utf-8"))
 
     async def run(self) -> dict[str, Any]:
         """Fetch videos, write metadata YAML, and download files when possible.
@@ -174,7 +190,18 @@ class VideosDownloader:
             if target.exists():
                 pbar_player.update(1)
                 continue
-            await download_video(target, job["player"])  # uses retries internally
+            marker = target.parent.joinpath(f"{target.name}_error.txt")
+            try:
+                await download_video(target, job["player"])  # uses retries internally
+                # If success, remove any existing error marker
+                try:
+                    if marker.exists():
+                        marker.unlink()
+                except Exception:  # noqa: BLE001
+                    pass
+            except Exception as exc:  # noqa: BLE001
+                message = f"yt-dlp error while downloading {job['player']}: {exc}"
+                FileOperations.atomic_write_bytes(marker, message.encode("utf-8"))
             pbar_player.update(1)
         pbar_player.close()
 
