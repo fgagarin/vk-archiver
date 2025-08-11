@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vk_photos.utils.config import ConfigManager
+from vk_archiver.utils.config import ConfigManager
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch

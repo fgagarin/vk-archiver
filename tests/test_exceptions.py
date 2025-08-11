@@ -1,8 +1,8 @@
-"""Tests for the VK Photos Scrobler exception hierarchy."""
+"""Tests for the VK Archiver exception hierarchy."""
 
 from typing import TYPE_CHECKING
 
-from vk_photos.utils.exceptions import (
+from vk_archiver.utils.exceptions import (
     APIError,
     AuthenticationError,
     ConfigurationError,

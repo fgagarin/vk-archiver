@@ -1,8 +1,8 @@
-# VK Photos CLI
+# VK Archiver CLI
 
 <div align="center">
-  <a href="https://github.com/YarikMix/vk-photos">
-    <img src="https://img.shields.io/github/stars/YarikMix/vk-photos" alt="Stars Badge"/>
+  <a href="https://github.com/fgagarin/vk-archiver">
+    <img src="https://img.shields.io/github/stars/fgagarin/vk-archiver" alt="Stars Badge"/>
   </a>
 </div>
 
@@ -22,7 +22,7 @@ Recommended via `uv` for isolated env and dependency management:
 # Install uv (see https://github.com/astral-sh/uv)
 
 # Run the CLI directly (no manual env activation needed)
-uv run vk-photos --help
+uv run vk-archiver --help
 
 # Or create a local environment and install dependencies (including dev)
 uv sync
@@ -45,7 +45,7 @@ Provide the token either via environment or config:
 ```bash
 export VK_TOKEN=YOUR_TOKEN_HERE
 ```
-- Or in `vk_photos/config.yaml`:
+- Or in `vk_archiver/config.yaml`:
 ```yaml
 token: YOUR_TOKEN_HERE
 ```
@@ -56,7 +56,7 @@ token: YOUR_TOKEN_HERE
 
 General form:
 ```bash
-uv run vk-photos [OPTIONS] COMMAND [ARGS]...
+uv run vk-archiver [OPTIONS] COMMAND [ARGS]...
 ```
 
 Global options:
@@ -65,7 +65,7 @@ Global options:
 
 ### Universal community download
 ```bash
-uv run vk-photos download \
+uv run vk-archiver download \
   --group <screen_name|id> \
   --types metadata,wall,photos,videos,documents,stories \
   --output downloads \
@@ -80,19 +80,19 @@ uv run vk-photos download \
 Examples:
 ```bash
 # Metadata only
-uv run vk-photos download --group habr --types metadata
+uv run vk-archiver download --group habr --types metadata
 
 # Wall with date filters
-uv run vk-photos download --group 1 --types wall --since 2024-01-01 --max-items 200
+uv run vk-archiver download --group 1 --types wall --since 2024-01-01 --max-items 200
 
 # Albums with parallel downloads
-uv run vk-photos download --group mygroup --types photos --concurrency 8
+uv run vk-archiver download --group mygroup --types photos --concurrency 8
 
 # Videos (yt-dlp). Errors are written to *_error.txt
-uv run vk-photos download --group mygroup --types videos --max-items 50
+uv run vk-archiver download --group mygroup --types videos --max-items 50
 
 # Documents and stories
-uv run vk-photos download --group mygroup --types documents,stories
+uv run vk-archiver download --group mygroup --types documents,stories
 ```
 
 ## Storage layout
@@ -120,3 +120,9 @@ downloads/
 - Resume: `state.json` in the group root keeps cursors/offsets.
 - Idempotency: existing files are skipped.
 - Errors: per-file `*_error.txt` markers are created with details; files are retried on the next run.
+
+## Credits
+
+This project is a fork of the original `vk-archiver` by YarikMix. Many ideas and parts of the implementation were inspired by and/or adapted from the upstream project.
+
+- Original repository: `https://github.com/YarikMix/vk-archiver`

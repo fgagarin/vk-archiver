@@ -48,7 +48,7 @@ loop = asyncio.get_event_loop()
 
 
 class CLIParameterValidator:
-    """Validate CLI parameters for VK Photos downloader."""
+    """Validate CLI parameters for VK Archiver CLI."""
 
     @staticmethod
     def validate_user_id(user_id: str | None) -> str | None:

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vk_photos.utils.consistency import ConsistencyManager
+from vk_archiver.utils.consistency import ConsistencyManager
 
 if TYPE_CHECKING:
     pass

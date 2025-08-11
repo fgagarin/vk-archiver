@@ -1,7 +1,7 @@
-# VK Photos Project - Refactoring Plan
+# VK Archiver Project - Refactoring Plan
 
 ## Overview
-This document outlines a comprehensive refactoring plan to bring the VK Photos project into compliance with established project rules and best practices. The plan is broken down into simple, sequential tasks that can be executed by an AI assistant.
+This document outlines a comprehensive refactoring plan to bring the VK Archiver project into compliance with established project rules and best practices. The plan is broken down into simple, sequential tasks that can be executed by an AI assistant.
 
 ## Project Rules Compliance Issues
 - ❌ Login/password authentication (FORBIDDEN)
@@ -21,7 +21,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 1.1: Remove Login/Password Authentication
 **Priority**: CRITICAL
-**Files to modify**: `vk_photos/main.py`, `vk_photos/config.yaml`
+**Files to modify**: `vk_archiver/main.py`, `vk_archiver/config.yaml`
 **Actions**:
 1. Remove `auth()` method from `Utils` class in `main.py`
 2. Remove `login` and `password` fields from `config.yaml`
@@ -37,7 +37,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 1.2: Remove File Deletion Operations
 **Priority**: CRITICAL
-**Files to modify**: `vk_photos/main.py`, `vk_photos/filter.py`
+**Files to modify**: `vk_archiver/main.py`, `vk_archiver/filter.py`
 **Actions**:
 1. Remove `remove_dir()` method from `Utils` class
 2. Replace duplicate file deletion in `filter.py` with safe operations
@@ -53,7 +53,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 1.3: Implement Download Consistency Management
 **Priority**: CRITICAL
-**Files to create**: `vk_photos/utils/consistency.py`
+**Files to create**: `vk_archiver/utils/consistency.py`
 **Actions**:
 1. Create `ConsistencyManager` class with file locking
 2. Implement persistent storage of downloaded file list
@@ -72,7 +72,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 2.1: Implement Click-Based CLI
 **Priority**: CRITICAL
-**Files to modify**: `vk_photos/main.py`
+**Files to modify**: `vk_archiver/main.py`
 **Actions**:
 1. Install Click dependency if not present
 2. Replace interactive `input()` calls with Click commands
@@ -89,7 +89,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 2.2: Add Environment Variable Support
 **Priority**: HIGH
-**Files to create**: `vk_photos/config/settings.py`
+**Files to create**: `vk_archiver/config/settings.py`
 **Actions**:
 1. Create `SecureConfig` class for configuration management
 2. Add environment variable support for all parameters
@@ -109,9 +109,9 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 #### Task 3.1: Create Modular Directory Structure
 **Priority**: HIGH
 **Actions**:
-1. Create `vk_photos/downloaders/` directory
-2. Create `vk_photos/utils/` directory
-3. Create `vk_photos/config/` directory
+1. Create `vk_archiver/downloaders/` directory
+2. Create `vk_archiver/utils/` directory
+3. Create `vk_archiver/config/` directory
 4. Create `tests/` directory
 5. Add `__init__.py` files to all directories
 
@@ -124,11 +124,11 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 3.2: Extract User Downloader
 **Priority**: HIGH
-**Files to create**: `vk_photos/downloaders/user.py`
-**Files to modify**: `vk_photos/main.py`
+**Files to create**: `vk_archiver/downloaders/user.py`
+**Files to modify**: `vk_archiver/main.py`
 **Actions**:
 1. Extract `UserPhotoDownloader` and `UsersPhotoDownloader` classes
-2. Move to `vk_photos/downloaders/user.py`
+2. Move to `vk_archiver/downloaders/user.py`
 3. Add proper imports and exports
 4. Update main.py to import from new location
 
@@ -142,11 +142,11 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 3.3: Extract Group Downloader
 **Priority**: HIGH
-**Files to create**: `vk_photos/downloaders/group.py`
-**Files to modify**: `vk_photos/main.py`
+**Files to create**: `vk_archiver/downloaders/group.py`
+**Files to modify**: `vk_archiver/main.py`
 **Actions**:
 1. Extract `GroupPhotoDownloader`, `GroupsPhotoDownloader`, and `GroupAlbumsDownloader` classes
-2. Move to `vk_photos/downloaders/group.py`
+2. Move to `vk_archiver/downloaders/group.py`
 3. Add proper imports and exports
 4. Update main.py to import from new location
 
@@ -160,11 +160,11 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 3.4: Extract Chat Downloader
 **Priority**: HIGH
-**Files to create**: `vk_photos/downloaders/chat.py`
-**Files to modify**: `vk_photos/main.py`
+**Files to create**: `vk_archiver/downloaders/chat.py`
+**Files to modify**: `vk_archiver/main.py`
 **Actions**:
 1. Extract `ChatMembersPhotoDownloader`, `ChatPhotoDownloader`, and `ChatUserPhotoDownloader` classes
-2. Move to `vk_photos/downloaders/chat.py`
+2. Move to `vk_archiver/downloaders/chat.py`
 3. Add proper imports and exports
 4. Update main.py to import from new location
 
@@ -178,8 +178,8 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 3.5: Extract Utility Functions
 **Priority**: HIGH
-**Files to create**: `vk_photos/utils/auth.py`, `vk_photos/utils/validation.py`, `vk_photos/utils/file_ops.py`
-**Files to modify**: `vk_photos/main.py`, `vk_photos/functions.py`
+**Files to create**: `vk_archiver/utils/auth.py`, `vk_archiver/utils/validation.py`, `vk_archiver/utils/file_ops.py`
+**Files to modify**: `vk_archiver/main.py`, `vk_archiver/functions.py`
 **Actions**:
 1. Extract authentication methods to `auth.py`
 2. Extract validation methods to `validation.py`
@@ -234,7 +234,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 5.1: Implement Exception Hierarchy
 **Priority**: MEDIUM
-**Files to create**: `vk_photos/utils/exceptions.py`
+**Files to create**: `vk_archiver/utils/exceptions.py`
 **Actions**:
 1. Create base `VKScroblerError` exception
 2. Create specific exception classes
@@ -270,7 +270,7 @@ This document outlines a comprehensive refactoring plan to bring the VK Photos p
 
 #### Task 6.1: Implement Rate Limiting
 **Priority**: MEDIUM
-**Files to create**: `vk_photos/utils/rate_limiter.py`
+**Files to create**: `vk_archiver/utils/rate_limiter.py`
 **Actions**:
 1. Create `RateLimitedVKAPI` class
 2. Implement rate limiting for VK API calls

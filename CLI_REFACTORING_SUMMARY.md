@@ -1,4 +1,4 @@
-# VK Photos CLI Refactoring Summary
+# VK Archiver CLI Refactoring Summary
 
 ## ✅ Completed Tasks
 
@@ -12,7 +12,7 @@
 
 #### Main Command Group
 ```bash
-vk-photos [OPTIONS] COMMAND [ARGS]...
+vk-archiver [OPTIONS] COMMAND [ARGS]...
 ```
 
 #### Global Options
@@ -92,29 +92,29 @@ All parameters can be set via environment variables:
 
 ### Download photos from a single user
 ```bash
-vk-photos user --user-id 123456
+vk-archiver user --user-id 123456
 ```
 
 ### Download photos from multiple users
 ```bash
-vk-photos users --user-ids "123456,789012,345678"
+vk-archiver users --user-ids "123456,789012,345678"
 ```
 
 ### Download photos and videos from a group
 ```bash
-vk-photos group --group-id 123456 --download-videos
+vk-archiver group --group-id 123456 --download-videos
 ```
 
 ### Download photos to custom directory
 ```bash
-vk-photos user --user-id 123456 --output-dir /path/to/downloads
+vk-archiver user --user-id 123456 --output-dir /path/to/downloads
 ```
 
 ### Using environment variables
 ```bash
 export VK_USER_ID=123456
 export VK_OUTPUT_DIR=/path/to/downloads
-vk-photos user
+vk-archiver user
 ```
 
 ## 🎯 Compliance with Project Rules

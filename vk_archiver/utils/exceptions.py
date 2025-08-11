@@ -1,6 +1,6 @@
-"""Custom exception hierarchy for VK Photos Scrobler.
+"""Custom exception hierarchy for VK Archiver.
 
-This module defines a comprehensive exception hierarchy for the VK Photos Scrobler
+This module defines a comprehensive exception hierarchy for the VK Archiver
 application. It provides specific exception types for different error scenarios
 to enable better error handling and debugging throughout the application.
 """
@@ -9,10 +9,10 @@ from typing import Any
 
 
 class VKScroblerError(Exception):
-    """Base exception class for all VK Photos Scrobler errors.
+    """Base exception class for all VK Archiver errors.
 
-    This is the root exception class that all other exceptions in the VK Photos
-    Scrobler should inherit from. It provides a common interface for error
+    This is the root exception class that all other exceptions in the VK Archiver
+    should inherit from. It provides a common interface for error
     handling and can be used as a catch-all for any application-specific errors.
 
     Attributes:

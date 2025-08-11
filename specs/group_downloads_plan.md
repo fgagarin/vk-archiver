@@ -59,7 +59,7 @@ Notes:
 ### CLI and configuration UX
 
 - Command (example):
-  - `uv run vk-photos download --group <screen_name|id> --types metadata,wall,photos,videos,documents,stories --output downloads --since 2024-01-01 --until 2025-01-01 --max-items 10000 --concurrency 8`
+  - `uv run vk-archiver download --group <screen_name|id> --types metadata,wall,photos,videos,documents,stories --output downloads --since 2024-01-01 --until 2025-01-01 --max-items 10000 --concurrency 8`
 - Flags/options:
   - `--group`: group screen name or numeric id (without minus). Resolve to `group_id` internally.
   - `--types`: comma-separated list or `all`.

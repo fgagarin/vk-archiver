@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vk-photos"
+name = "vk-archiver"
 version = "0.1.0"
-description = "Скрипт для скачивания фотографий пользователей / групп / бесед ВКонтакте"
+description = "Command-line tool to archive VK community content (metadata, wall posts, photos, videos, documents, stories) with structured YAML metadata. Token-only authentication; no login/password."
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "YarikMix", email = ""}
+    {name = "Fedor Gagarin", email = "fddgagarin@gmail.com"}
 ]
 keywords = ["vk", "vkontakte", "photos", "downloader", "scraper"]
 classifiers = [
@@ -56,15 +56,15 @@ dev = [
 ]
 
 [project.scripts]
-vk-photos = "vk_photos.main:main"
+vk-archiver = "vk_archiver.main:main"
 
 [project.urls]
-Homepage = "https://github.com/YarikMix/vk-photos"
-Repository = "https://github.com/YarikMix/vk-photos"
-Issues = "https://github.com/YarikMix/vk-photos/issues"
+Homepage = "https://github.com/fgagarin/vk-archiver"
+Repository = "https://github.com/fgagarin/vk-archiver"
+Issues = "https://github.com/fgagarin/vk-archiver/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["vk_photos"]
+packages = ["vk_archiver"]
 
 
 [tool.mypy]

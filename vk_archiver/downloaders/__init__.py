@@ -1,4 +1,4 @@
-"""Downloaders package for VK Photos application."""
+"""Downloaders package for VK Archiver application."""
 
 from .chat import (
     ChatMembersPhotoDownloader,

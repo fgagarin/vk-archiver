@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from vk_photos.downloaders.user import UserPhotoDownloader
+from vk_archiver.downloaders.user import UserPhotoDownloader
 
 if TYPE_CHECKING:
     from pytest_mock.plugin import MockerFixture
@@ -57,7 +57,7 @@ async def test_user_downloader_builds_paths_and_invokes_download(
 
     # Spy on download_photos
     # Spy on module-level function used by downloader
-    from vk_photos.downloaders import user as user_mod
+    from vk_archiver.downloaders import user as user_mod
 
     download_spy = mocker.spy(user_mod, "download_photos")
 

@@ -1,4 +1,4 @@
-"""Logging configuration for VK Photos application.
+"""Logging configuration for VK Archiver application.
 
 This module provides centralized logging configuration with consistent formatting
 and log levels across the entire application.
@@ -15,7 +15,7 @@ def setup_logging(
     format_string: str | None = None,
 ) -> logging.Logger:
     """
-    Set up centralized logging configuration for the VK Photos application.
+    Set up centralized logging configuration for the VK Archiver application.
 
     Args:
         level: Logging level (default: INFO)
@@ -59,7 +59,7 @@ def setup_logging(
         root_logger.addHandler(file_handler)
 
     # Create and return application logger
-    app_logger = logging.getLogger("vk_photos")
+    app_logger = logging.getLogger("vk_archiver")
     app_logger.setLevel(level)
 
     return app_logger
@@ -75,7 +75,7 @@ def get_logger(name: str) -> logging.Logger:
     Returns:
         Logger instance configured with the application's logging settings
     """
-    return logging.getLogger(f"vk_photos.{name}")
+    return logging.getLogger(f"vk_archiver.{name}")
 
 
 # Default logger instances for common modules

@@ -1,4 +1,4 @@
-"""User photo downloader classes for VK Photos application."""
+"""User photo downloader classes for VK Archiver application."""
 
 import math
 import time

@@ -1,1 +1,1 @@
-"""Test suite for VK Photos project."""
+"""Test suite for VK Archiver project."""

@@ -1,4 +1,4 @@
-"""Utility modules for VK Photos project."""
+"""Utility modules for VK Archiver project."""
 
 from .exceptions import (
     APIError,

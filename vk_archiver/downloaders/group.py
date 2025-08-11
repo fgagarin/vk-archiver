@@ -1,4 +1,4 @@
-"""Group photo downloader classes for VK Photos application."""
+"""Group photo downloader classes for VK Archiver application."""
 
 import math
 import time

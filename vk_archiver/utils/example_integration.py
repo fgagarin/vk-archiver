@@ -8,8 +8,8 @@ program instances.
 
 from pathlib import Path
 
-from vk_photos.utils.consistency import ConsistencyManager
-from vk_photos.utils.logging_config import get_logger
+from vk_archiver.utils.consistency import ConsistencyManager
+from vk_archiver.utils.logging_config import get_logger
 
 logger = get_logger("utils.example_integration")
 

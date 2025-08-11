@@ -10,6 +10,7 @@ Step 4 from the group downloads plan:
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,31 @@ def _ext_from_url(url: str) -> str:
         if 1 <= len(ext) <= 5 and all(c.isalnum() for c in ext):
             return ext
     return "jpg"
+
+
+def _basename_from_url(url: str) -> str | None:
+    """Extract basename from URL path if present."""
+    path = url.split("?")[0]
+    if "/" in path:
+        name = path.rsplit("/", 1)[-1]
+        return name or None
+    return None
+
+
+def _sanitize_filename(name: str) -> str:
+    """Sanitize a filename for safe filesystem usage."""
+    return (
+        name.replace("/", "")
+        .replace("\\", "")
+        .replace("|", "")
+        .replace(":", "")
+        .replace("*", "")
+        .replace("?", "")
+        .replace('"', "")
+        .replace("<", "")
+        .replace(">", "")
+        .strip()
+    )
 
 
 @dataclass
@@ -266,16 +292,23 @@ class WallDownloader:
             int(p.get("id")): _format_day(int(p.get("date", 0))) for p in posts
         }
 
-        # Save each post text
+        # Save each post text and per-post YAML with hashtags
         for post in posts:
             pid = int(post.get("id"))
             day = post_id_to_date.get(pid, _format_day(int(post.get("date", 0))))
             text_content = str(post.get("text") or "")
             text_path = posts_dir.joinpath(f"{day}-{pid}.txt")
             FileOperations.atomic_write_bytes(text_path, text_content.encode("utf-8"))
+            # Extract hashtags and write YAML snapshot
+            hashtags = list({m.group(0) for m in re.finditer(r"#\w+", text_content)})
+            day_compact = day.replace("-", "")
+            post_yaml_path = posts_dir.joinpath(f"{day_compact}-{pid}.yaml")
+            post_payload: dict[str, Any] = {"post": post, "hashtags": hashtags}
+            FileOperations.write_yaml(post_yaml_path, post_payload)
 
         # Download per-post photo attachments into the same directory with naming rule
         photo_jobs: list[tuple[str, Path]] = []
+        doc_jobs: list[tuple[str, Path]] = []
         for item in photos_index:
             url = item.get("url")
             post_id = item.get("post_id")
@@ -288,21 +321,62 @@ class WallDownloader:
             ):
                 continue
             day = post_id_to_date.get(int(post_id), "unknown")
-            ext = _ext_from_url(url)
-            target = posts_dir.joinpath(f"{day}-{post_id}-{photo_id}.{ext}")
+            # Prefer original filename from URL if present
+            base = _basename_from_url(url) or f"{photo_id}.{_ext_from_url(url)}"
+            base = _sanitize_filename(base)
+            target = posts_dir.joinpath(f"{day}-{post_id}-{base}")
             if target.exists():
                 continue
             photo_jobs.append((url, target))
 
-        if photo_jobs:
+        # Collect document attachments from posts
+        for post in posts:
+            pid = int(post.get("id"))
+            day = post_id_to_date.get(pid, _format_day(int(post.get("date", 0))))
+            atts = post.get("attachments")
+            if not isinstance(atts, list):
+                continue
+            for att in atts:
+                if att.get("type") == "doc":
+                    doc = att.get("doc", {})
+                    url = doc.get("url")
+                    doc_id = doc.get("id")
+                    if not (isinstance(url, str) and url and doc_id is not None):
+                        continue
+                    # Use original file name if present (VK docs often have title or url basename)
+                    original_name = (
+                        str(doc.get("title"))
+                        if doc.get("title")
+                        else _basename_from_url(url)
+                    )
+                    if not original_name:
+                        ext = str(doc.get("ext") or _ext_from_url(url))
+                        original_name = f"{doc_id}.{ext}"
+                    original_name = _sanitize_filename(original_name)
+                    target = posts_dir.joinpath(f"{day}-{pid}-{original_name}")
+                    if target.exists():
+                        continue
+                    doc_jobs.append((url, target))
+
+        if photo_jobs or doc_jobs:
             async with aiohttp.ClientSession() as session:
                 sem = asyncio.Semaphore(8)
 
-                async def _bounded(url: str, dest: Path) -> None:
+                async def _dl_photo(url: str, dest: Path) -> None:
                     async with sem:
                         await download_photo(session, url, dest)
 
-                tasks = [_bounded(url, dest) for (url, dest) in photo_jobs]
+                async def _dl_doc(url: str, dest: Path) -> None:
+                    async with sem:
+                        async with session.get(url) as resp:
+                            if resp.status == 200:
+                                FileOperations.atomic_write_bytes(
+                                    dest, await resp.read()
+                                )
+
+                tasks = [_dl_photo(url, dest) for (url, dest) in photo_jobs] + [
+                    _dl_doc(url, dest) for (url, dest) in doc_jobs
+                ]
                 for t in asyncio.as_completed(tasks):
                     try:
                         await t

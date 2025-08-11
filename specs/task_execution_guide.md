@@ -15,7 +15,7 @@ Copy and paste the task command below into your message to the AI assistant. Eac
 ```
 Execute Task 1.1: Remove Login/Password Authentication
 
-Remove the login/password authentication method from the Utils class in vk_photos/main.py and remove the login and password fields from vk_photos/config.yaml. Ensure only token-based authentication is available and add validation to prevent login/password usage.
+Remove the login/password authentication method from the Utils class in vk_archiver/main.py and remove the login and password fields from vk_archiver/config.yaml. Ensure only token-based authentication is available and add validation to prevent login/password usage.
 ```
 
 ---
@@ -25,7 +25,7 @@ Remove the login/password authentication method from the Utils class in vk_photo
 ```
 Execute Task 1.2: Remove File Deletion Operations
 
-Remove the remove_dir() method from the Utils class in vk_photos/main.py and replace the duplicate file deletion in vk_photos/filter.py with safe operations that only create and append files. Add logging for skipped files instead of deletion.
+Remove the remove_dir() method from the Utils class in vk_archiver/main.py and replace the duplicate file deletion in vk_archiver/filter.py with safe operations that only create and append files. Add logging for skipped files instead of deletion.
 ```
 
 ---
@@ -35,7 +35,7 @@ Remove the remove_dir() method from the Utils class in vk_photos/main.py and rep
 ```
 Execute Task 1.3: Implement Download Consistency Management
 
-Create a new file vk_photos/utils/consistency.py with a ConsistencyManager class that implements file locking and persistent storage of downloaded file list. Add methods to check and mark files as downloaded, and integrate with all downloader classes to prevent duplicate downloads across multiple program instances.
+Create a new file vk_archiver/utils/consistency.py with a ConsistencyManager class that implements file locking and persistent storage of downloaded file list. Add methods to check and mark files as downloaded, and integrate with all downloader classes to prevent duplicate downloads across multiple program instances.
 ```
 
 ---
@@ -47,7 +47,7 @@ Create a new file vk_photos/utils/consistency.py with a ConsistencyManager class
 ```
 Execute Task 2.1: Implement Click-Based CLI
 
-Replace all interactive input() calls in vk_photos/main.py with Click commands. Create a main Click command with subcommands for each download type (user, group, chat, etc.). Add proper argument validation and help text. Ensure no input() calls remain in the code.
+Replace all interactive input() calls in vk_archiver/main.py with Click commands. Create a main Click command with subcommands for each download type (user, group, chat, etc.). Add proper argument validation and help text. Ensure no input() calls remain in the code.
 ```
 
 ---
@@ -57,7 +57,7 @@ Replace all interactive input() calls in vk_photos/main.py with Click commands. 
 ```
 Execute Task 2.2: Add Environment Variable Support
 
-Create a new file vk_photos/config/settings.py with a SecureConfig class for configuration management. Add environment variable support for all parameters (VK_TOKEN, VK_USER_ID, VK_GROUP_ID, etc.). Implement secure token handling that never passes tokens via CLI arguments. Add configuration validation.
+Create a new file vk_archiver/config/settings.py with a SecureConfig class for configuration management. Add environment variable support for all parameters (VK_TOKEN, VK_USER_ID, VK_GROUP_ID, etc.). Implement secure token handling that never passes tokens via CLI arguments. Add configuration validation.
 ```
 
 ---
@@ -70,9 +70,9 @@ Create a new file vk_photos/config/settings.py with a SecureConfig class for con
 Execute Task 3.1: Create Modular Directory Structure
 
 Create the following directory structure:
-- vk_photos/downloaders/
-- vk_photos/utils/
-- vk_photos/config/
+- vk_archiver/downloaders/
+- vk_archiver/utils/
+- vk_archiver/config/
 - tests/
 
 Add __init__.py files to all directories to make them proper Python packages.
@@ -85,7 +85,7 @@ Add __init__.py files to all directories to make them proper Python packages.
 ```
 Execute Task 3.2: Extract User Downloader
 
-Extract the UserPhotoDownloader and UsersPhotoDownloader classes from vk_photos/main.py and move them to vk_photos/downloaders/user.py. Add proper imports and exports, and update main.py to import from the new location. Ensure no functionality is lost.
+Extract the UserPhotoDownloader and UsersPhotoDownloader classes from vk_archiver/main.py and move them to vk_archiver/downloaders/user.py. Add proper imports and exports, and update main.py to import from the new location. Ensure no functionality is lost.
 ```
 
 ---
@@ -95,7 +95,7 @@ Extract the UserPhotoDownloader and UsersPhotoDownloader classes from vk_photos/
 ```
 Execute Task 3.3: Extract Group Downloader
 
-Extract the GroupPhotoDownloader, GroupsPhotoDownloader, and GroupAlbumsDownloader classes from vk_photos/main.py and move them to vk_photos/downloaders/group.py. Add proper imports and exports, and update main.py to import from the new location. Ensure no functionality is lost.
+Extract the GroupPhotoDownloader, GroupsPhotoDownloader, and GroupAlbumsDownloader classes from vk_archiver/main.py and move them to vk_archiver/downloaders/group.py. Add proper imports and exports, and update main.py to import from the new location. Ensure no functionality is lost.
 ```
 
 ---
@@ -105,7 +105,7 @@ Extract the GroupPhotoDownloader, GroupsPhotoDownloader, and GroupAlbumsDownload
 ```
 Execute Task 3.4: Extract Chat Downloader
 
-Extract the ChatMembersPhotoDownloader, ChatPhotoDownloader, and ChatUserPhotoDownloader classes from vk_photos/main.py and move them to vk_photos/downloaders/chat.py. Add proper imports and exports, and update main.py to import from the new location. Ensure no functionality is lost.
+Extract the ChatMembersPhotoDownloader, ChatPhotoDownloader, and ChatUserPhotoDownloader classes from vk_archiver/main.py and move them to vk_archiver/downloaders/chat.py. Add proper imports and exports, and update main.py to import from the new location. Ensure no functionality is lost.
 ```
 
 ---
@@ -115,7 +115,7 @@ Extract the ChatMembersPhotoDownloader, ChatPhotoDownloader, and ChatUserPhotoDo
 ```
 Execute Task 3.5: Extract Utility Functions
 
-Extract authentication methods from Utils class to vk_photos/utils/auth.py, validation methods to vk_photos/utils/validation.py, and file operations to vk_photos/utils/file_ops.py. Update all imports in affected files. Ensure no circular imports exist and all functionality is preserved.
+Extract authentication methods from Utils class to vk_archiver/utils/auth.py, validation methods to vk_archiver/utils/validation.py, and file operations to vk_archiver/utils/file_ops.py. Update all imports in affected files. Ensure no circular imports exist and all functionality is preserved.
 ```
 
 ---
@@ -149,7 +149,7 @@ Add comprehensive docstrings to all classes and functions in the codebase. Follo
 ```
 Execute Task 5.1: Implement Exception Hierarchy
 
-Create a new file vk_photos/utils/exceptions.py with a custom exception hierarchy. Include a base VKScroblerError exception and specific exception classes for different error types (AuthenticationError, DownloadError, etc.). Replace generic exception handling throughout the codebase with specific exception handling.
+Create a new file vk_archiver/utils/exceptions.py with a custom exception hierarchy. Include a base VKScroblerError exception and specific exception classes for different error types (AuthenticationError, DownloadError, etc.). Replace generic exception handling throughout the codebase with specific exception handling.
 ```
 
 ---
@@ -171,7 +171,7 @@ Replace all print statements with proper logging throughout the codebase. Standa
 ```
 Execute Task 6.1: Implement Rate Limiting
 
-Create a new file vk_photos/utils/rate_limiter.py with a RateLimitedVKAPI class that implements rate limiting for VK API calls. Add configurable requests per second (default 3) and integrate with all API calls throughout the codebase. Ensure no API rate limit violations occur.
+Create a new file vk_archiver/utils/rate_limiter.py with a RateLimitedVKAPI class that implements rate limiting for VK API calls. Add configurable requests per second (default 3) and integrate with all API calls throughout the codebase. Ensure no API rate limit violations occur.
 ```
 
 ---

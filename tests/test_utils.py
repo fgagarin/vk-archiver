@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vk_photos.utils.file_ops import FileOperations
+from vk_archiver.utils.file_ops import FileOperations
 
 if TYPE_CHECKING:
     pass

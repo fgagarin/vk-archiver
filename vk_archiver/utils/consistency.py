@@ -1,5 +1,5 @@
 """
-Consistency management for VK Photos downloader.
+Consistency management for VK Archiver.
 
 This module provides the ConsistencyManager class which handles file locking
 and persistent storage of downloaded file lists to prevent duplicate downloads
@@ -21,9 +21,9 @@ class ConsistencyManager:
     """
     Manages download consistency across multiple program instances.
 
-    This class implements file locking and persistent storage to ensure that
-    downloaded files are tracked consistently across multiple instances of
-    the VK Photos downloader. It prevents duplicate downloads and maintains
+        This class implements file locking and persistent storage to ensure that
+        downloaded files are tracked consistently across multiple instances of
+        the VK Archiver. It prevents duplicate downloads and maintains
     a persistent record of all downloaded files.
 
     Attributes:

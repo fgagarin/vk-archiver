@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from vk_photos.utils.rate_limiter import RateLimitedVKAPI
+from vk_archiver.utils.rate_limiter import RateLimitedVKAPI
 
 
 class TestRateLimitedVKAPI:
