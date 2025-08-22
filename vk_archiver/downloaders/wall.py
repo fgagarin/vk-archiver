@@ -339,7 +339,7 @@ class WallDownloader:
             atts = post.get("attachments")
             if not isinstance(atts, list):
                 continue
-            for att in atts:
+            for att in atts:  # Not implemented: video, audio
                 if att.get("type") == "doc":
                     doc = att.get("doc", {})
                     url = doc.get("url")
@@ -355,6 +355,8 @@ class WallDownloader:
                     if not original_name:
                         ext = str(doc.get("ext") or _ext_from_url(url))
                         original_name = f"{doc_id}.{ext}"
+                    if original_name.endswith(".") and doc.get("ext", None):
+                        original_name = original_name + doc.get("ext")
                     original_name = _sanitize_filename(original_name)
                     target = posts_dir.joinpath(f"{day}-{pid}-{original_name}")
                     if target.exists():
