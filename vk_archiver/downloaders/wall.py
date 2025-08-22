@@ -19,7 +19,7 @@ from typing import Any
 import aiohttp
 from tqdm.asyncio import tqdm
 
-from ..functions import download_photo, download_photos
+from ..functions import download_photo, download_photos, download_video
 from ..utils import RateLimitedVKAPI, Utils
 from ..utils.file_ops import FileOperations
 from ..utils.logging_config import get_logger
@@ -309,9 +309,16 @@ class WallDownloader:
             post_payload: dict[str, Any] = {"post": post, "hashtags": hashtags}
             FileOperations.write_yaml(post_yaml_path, post_payload)
 
-        # Download per-post photo attachments into the same directory with naming rule
+        # Download per-post attachments into the same directory with naming rule
         photo_jobs: list[tuple[str, Path]] = []
-        doc_jobs: list[tuple[str, Path]] = []
+        doc_jobs: list[tuple[int, str, Path]] = []
+        video_jobs: list[dict[str, Any]] = []
+        audio_jobs: list[tuple[int, str, Path]] = []
+
+        # Counters for summary
+        downloaded_docs: int = 0
+        downloaded_videos: int = 0
+        downloaded_audios: int = 0
         for item in photos_index:
             url = item.get("url")
             post_id = item.get("post_id")
@@ -332,14 +339,14 @@ class WallDownloader:
                 continue
             photo_jobs.append((url, target))
 
-        # Collect document attachments from posts
+        # Collect document, video and audio attachments from posts
         for post in posts:
             pid = int(post.get("id"))
             day = post_id_to_date.get(pid, _format_day(int(post.get("date", 0))))
             atts = post.get("attachments")
             if not isinstance(atts, list):
                 continue
-            for att in atts:  # Not implemented: video, audio
+            for att in atts:
                 if att.get("type") == "doc":
                     doc = att.get("doc", {})
                     url = doc.get("url")
@@ -356,14 +363,62 @@ class WallDownloader:
                         ext = str(doc.get("ext") or _ext_from_url(url))
                         original_name = f"{doc_id}.{ext}"
                     if original_name.endswith(".") and doc.get("ext", None):
-                        original_name = original_name + doc.get("ext")
+                        original_name = original_name.replace("..", ".") + doc.get(
+                            "ext"
+                        )
                     original_name = _sanitize_filename(original_name)
                     target = posts_dir.joinpath(f"{day}-{pid}-{original_name}")
                     if target.exists():
                         continue
-                    doc_jobs.append((url, target))
+                    doc_jobs.append((pid, url, target))
+                elif att.get("type") == "video":
+                    video = att.get("video", {})
+                    vid_id = video.get("id")
+                    owner_id = video.get("owner_id")
+                    if vid_id is None or owner_id is None:
+                        continue
+                    player = video.get("player")
+                    access_key = video.get("access_key")
+                    if isinstance(player, str) and player:
+                        url = player
+                    else:
+                        url = f"https://vk.com/video{owner_id}_{vid_id}"
+                        if isinstance(access_key, str) and access_key:
+                            url = f"{url}?access_key={access_key}"
+                    # Build filename using title when available, fallback to ids
+                    title = str(video.get("title") or "").strip()
+                    if title:
+                        base_title = _sanitize_filename(title)[:80]
+                        if not base_title:
+                            base_title = f"{owner_id}_{vid_id}"
+                    else:
+                        base_title = f"{owner_id}_{vid_id}"
+                    target = posts_dir.joinpath(f"{day}-{pid}-{base_title}.mp4")
+                    if target.exists():
+                        continue
+                    video_jobs.append({"pid": pid, "url": url, "target": target})
+                elif att.get("type") == "audio":
+                    audio = att.get("audio", {})
+                    url = audio.get("url")
+                    if not isinstance(url, str) or not url:
+                        continue
+                    aud_id = audio.get("id")
+                    owner_id = audio.get("owner_id")
+                    artist = str(audio.get("artist") or "").strip()
+                    title = str(audio.get("title") or "").strip()
+                    ext = _ext_from_url(url) or "mp3"
+                    if artist or title:
+                        base = _sanitize_filename(f"{artist} - {title}")
+                        if not base:
+                            base = f"audio-{owner_id}_{aud_id}"
+                    else:
+                        base = f"audio-{owner_id}_{aud_id}"
+                    target = posts_dir.joinpath(f"{day}-{pid}-{base}.{ext}")
+                    if target.exists():
+                        continue
+                    audio_jobs.append((pid, url, target))
 
-        if photo_jobs or doc_jobs:
+        if photo_jobs or doc_jobs or video_jobs or audio_jobs:
             async with aiohttp.ClientSession() as session:
                 sem = asyncio.Semaphore(8)
 
@@ -371,17 +426,89 @@ class WallDownloader:
                     async with sem:
                         await download_photo(session, url, dest)
 
-                async def _dl_doc(url: str, dest: Path) -> None:
+                async def _dl_doc(pid: int, url: str, dest: Path) -> None:
+                    nonlocal downloaded_docs
                     async with sem:
-                        async with session.get(url) as resp:
-                            if resp.status == 200:
-                                FileOperations.atomic_write_bytes(
-                                    dest, await resp.read()
-                                )
+                        marker = dest.parent.joinpath(f"{dest.name}_error.txt")
+                        try:
+                            async with session.get(url) as resp:
+                                if resp.status == 200:
+                                    FileOperations.atomic_write_bytes(
+                                        dest, await resp.read()
+                                    )
+                                    downloaded_docs += 1
+                                    try:
+                                        if marker.exists():
+                                            marker.unlink()
+                                    except Exception:  # noqa: BLE001
+                                        pass
+                                else:
+                                    message = f"HTTP {resp.status} while downloading doc for post {pid}: {url}"
+                                    FileOperations.atomic_write_bytes(
+                                        marker, message.encode("utf-8")
+                                    )
+                        except Exception as exc:  # noqa: BLE001
+                            message = f"Error while downloading doc for post {pid} from {url}: {exc}"
+                            FileOperations.atomic_write_bytes(
+                                marker, message.encode("utf-8")
+                            )
 
-                tasks = [_dl_photo(url, dest) for (url, dest) in photo_jobs] + [
-                    _dl_doc(url, dest) for (url, dest) in doc_jobs
-                ]
+                async def _dl_audio(pid: int, url: str, dest: Path) -> None:
+                    nonlocal downloaded_audios
+                    async with sem:
+                        marker = dest.parent.joinpath(f"{dest.name}_error.txt")
+                        try:
+                            async with session.get(url) as resp:
+                                if resp.status == 200:
+                                    FileOperations.atomic_write_bytes(
+                                        dest, await resp.read()
+                                    )
+                                    downloaded_audios += 1
+                                    try:
+                                        if marker.exists():
+                                            marker.unlink()
+                                    except Exception:  # noqa: BLE001
+                                        pass
+                                else:
+                                    message = f"HTTP {resp.status} while downloading audio for post {pid}: {url}"
+                                    FileOperations.atomic_write_bytes(
+                                        marker, message.encode("utf-8")
+                                    )
+                        except Exception as exc:  # noqa: BLE001
+                            message = f"Error while downloading audio for post {pid} from {url}: {exc}"
+                            FileOperations.atomic_write_bytes(
+                                marker, message.encode("utf-8")
+                            )
+
+                async def _dl_video(job: dict[str, Any]) -> None:
+                    nonlocal downloaded_videos
+                    target: Path = job["target"]
+                    url: str = job["url"]
+                    pid: int = int(job.get("pid", 0))
+                    marker = target.parent.joinpath(f"{target.name}_error.txt")
+                    async with sem:
+                        try:
+                            if not target.exists():
+                                await download_video(target, url)
+                                if target.exists():
+                                    downloaded_videos += 1
+                                    try:
+                                        if marker.exists():
+                                            marker.unlink()
+                                    except Exception:  # noqa: BLE001
+                                        pass
+                        except Exception as exc:  # noqa: BLE001
+                            message = f"yt-dlp error while downloading video for post {pid} from {url}: {exc}"
+                            FileOperations.atomic_write_bytes(
+                                marker, message.encode("utf-8")
+                            )
+
+                tasks = (
+                    [_dl_photo(url, dest) for (url, dest) in photo_jobs]
+                    + [_dl_doc(pid, url, dest) for (pid, url, dest) in doc_jobs]
+                    + [_dl_audio(pid, url, dest) for (pid, url, dest) in audio_jobs]
+                    + [_dl_video(job) for job in video_jobs]
+                )
                 for t in asyncio.as_completed(tasks):
                     try:
                         await t
@@ -389,11 +516,16 @@ class WallDownloader:
                         pass
 
         logger.info(
-            f"Saved {len(posts)} posts and {len(photos_index)} photo links for group {self._group_id}"
+            f"Saved {len(posts)} posts, {len(photos_index)} photo links, "
+            f"{downloaded_docs} docs, {downloaded_videos} videos, {downloaded_audios} audios "
+            f"for group {self._group_id}"
         )
         return {
             "type": "wall",
             "items": len(posts),
             "photo_links": len(photos_index),
+            "docs_downloaded": downloaded_docs,
+            "videos_downloaded": downloaded_videos,
+            "audios_downloaded": downloaded_audios,
             "failures": 0,
         }

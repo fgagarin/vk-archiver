@@ -29,6 +29,7 @@ from .utils.exceptions import (
     ValidationError,
 )
 from .utils.logging_config import setup_logging
+from .utils.state import TypeStateStore
 
 if TYPE_CHECKING:
     from .utils import Utils
@@ -275,6 +276,13 @@ def main(
     envvar="VK_RESUME",
 )
 @click.option(
+    "--reset-offset",
+    is_flag=True,
+    default=False,
+    help="Reset saved offsets in state before running",
+    envvar="VK_RESET_OFFSET",
+)
+@click.option(
     "--api-version",
     default=None,
     help="Override VK API version",
@@ -297,6 +305,7 @@ def download(
     max_items: int | None,
     concurrency: int,
     resume: bool,
+    reset_offset: bool,
     api_version: str | None,
     dry_run: bool,
 ) -> None:
@@ -335,6 +344,7 @@ def download(
         "max_items": max_items,
         "concurrency": concurrency,
         "resume": resume,
+        "reset_offset": reset_offset,
         "api_version": api_version,
         "dry_run": dry_run,
     }
@@ -342,6 +352,19 @@ def download(
     # For step 3: if metadata type is requested (or all), fetch and persist it
     selected_types = plan["types"]
     summaries: list[dict[str, object]] = []
+
+    # Optionally reset offsets in state for selected types
+    if reset_offset and not dry_run:
+        state_store = TypeStateStore(base_dir.joinpath("state.json"))
+
+        def _should(type_name: str) -> bool:
+            return selected_types == "all" or type_name in selected_types  # type: ignore[operator]
+
+        # Known types that use offset-based pagination
+        for type_name in ("wall", "videos", "documents"):
+            if _should(type_name):
+                state_store.update(type_name, {"offset": 0})
+        click.echo("Offsets were reset for applicable types in state.json")
 
     if selected_types == "all" or "metadata" in selected_types:
         from .downloaders.metadata import MetadataRunConfig
