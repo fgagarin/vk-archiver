@@ -222,6 +222,7 @@ def main(
         "Group screen name or numeric id (without minus). "
         "Resolves to canonical folder name and group id."
     ),
+    envvar="VK_GROUP",
 )
 @click.option(
     "--types",
@@ -230,24 +231,33 @@ def main(
         "Comma-separated list of types to download: metadata,wall,photos,videos,documents,stories. "
         "Use 'all' to download everything."
     ),
+    envvar="VK_TYPES",
 )
 @click.option(
     "--output",
     default="downloads",
     show_default=True,
     help="Base output directory",
+    envvar="VK_OUTPUT",
 )
 @click.option(
-    "--since", default=None, help="Only include items on/after this date (YYYY-MM-DD)"
+    "--since",
+    default=None,
+    help="Only include items on/after this date (YYYY-MM-DD)",
+    envvar="VK_SINCE",
 )
 @click.option(
-    "--until", default=None, help="Only include items on/before this date (YYYY-MM-DD)"
+    "--until",
+    default=None,
+    help="Only include items on/before this date (YYYY-MM-DD)",
+    envvar="VK_UNTIL",
 )
 @click.option(
     "--max-items",
     type=int,
     default=None,
     help="Per-type cap. If omitted, download everything",
+    envvar="VK_MAX_ITEMS",
 )
 @click.option(
     "--concurrency",
@@ -255,15 +265,27 @@ def main(
     default=8,
     show_default=True,
     help="Number of parallel API fetches/downloads",
+    envvar="VK_CONCURRENCY",
 )
 @click.option(
     "--resume/--no-resume",
     default=True,
     show_default=True,
     help="Resume from saved cursors/offsets if present",
+    envvar="VK_RESUME",
 )
-@click.option("--api-version", default=None, help="Override VK API version")
-@click.option("--dry-run", is_flag=True, help="Print plan only; no network or writes")
+@click.option(
+    "--api-version",
+    default=None,
+    help="Override VK API version",
+    envvar="VK_API_VERSION",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Print plan only; no network or writes",
+    envvar="VK_DRY_RUN",
+)
 @click.pass_context
 def download(
     ctx: click.Context,

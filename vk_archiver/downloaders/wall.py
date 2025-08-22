@@ -186,7 +186,7 @@ class WallDownloader:
         # Resume offset if present
         existing = self._state.get("wall")
         offset = int(existing.get("offset", 0))
-        count = 100
+        count = 50
         saved = 0
         total_posts: int | None = None
 
@@ -255,6 +255,9 @@ class WallDownloader:
             logger.info(
                 f"Wall pagination: saved={saved}, offset={offset}, total={total_posts}"
             )
+
+        if len(posts) < total_posts:
+            raise Exception("Not all posts were downloaded")
 
         # Close progress bar
         if pbar is not None:
